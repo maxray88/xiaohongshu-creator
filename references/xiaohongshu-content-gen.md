@@ -79,3 +79,45 @@ When asked to generate content:
 - Default to **Chinese (Simplified)** for Xiaohongshu content
 - Match the user's language preference if specified
 - Keep the authentic Xiaohongshu voice regardless of language
+
+## Viral Content Formula (User-Approved)
+
+The following 7-step formula consistently produces viral Xiaohongshu posts:
+
+1. **Past self with negative opinion** — Start with a relatable "before" state
+2. **Life trigger / realization** — What changed? A moment of insight
+3. **Reframe / insight flip** — The "aha!" moment that flips the narrative
+4. **Numbered evidence list** — 3-7 concrete, scannable points
+5. **Emotional payoff sentence** — A warm, resonant closing line
+6. **Universal identity connection** — "All moms feel this" / "Anyone who..."
+7. **Personal story CTA** — Ask a personal question (not yes/no) to drive comments
+
+### Title Patterns That Work
+- **Emotional hook**: "后悔没早点知道！..." / "天呐！终于找到了..."
+- **Number list**: "{}个技巧让你..." / "分钟学会" / "{}大真相"
+- **Question**: "你还在为...发愁吗？"
+- **Transformation**: "从...到...我只用了..."
+- **Secret share**: "偷偷告诉你们..." / "压箱底的...分享"
+- **Relatable**: "姐妹们！这个真的绝了！" / "救命！太好用了！"
+- **FOMO**: "不看你就亏了" / "赶紧收藏" / "错过后悔一年"
+
+### CTA Principles
+- NEVER ask yes/no questions — they kill engagement
+- ALWAYS ask for personal stories or opinions
+- Examples: "你家娃也这样吗？" / "你妈妈也是超人吗？" / "评论区说说你的故事"
+
+### Hashtag Mix (10 total)
+- 2-3 broad tags: #小红书 #好物分享 #生活分享
+- 3-4 niche tags: topic-specific
+- 2-3 trending/emotional tags: #感动 #治愈 #太真实了
+- 1-2 content-specific tags
+
+## Automated Generation
+
+For automated content + cover generation, use:
+```bash
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
+    --topic "Topic here" --style "emotional" --emoji "😭"
+```
+
+The script generates 5 ranked titles, full body, 10 hashtags, 3 cover designs, and auto-invokes the image pipeline.

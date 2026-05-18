@@ -28,9 +28,10 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── xhs_comments.py                   # Comment management
 │   ├── xhs_engage.py                     # Engagement automation
 │   ├── render_covers.py                  # Cover image renderer (Playwright + HTML)
-│   └── xhs_image_pipeline.py             # All-in-one: search → download → cover
+│   ├── xhs_image_pipeline.py             # All-in-one: search → download → cover
+│   └── xhs_content_generator.py          # Viral content generator (titles + body + hashtags + covers)
 └── references/
-    ├── xiaohongshu-content-gen.md        # Content generation guide
+    ├── xiaohongshu-content-gen.md        # Content generation guide & viral formula
     ├── xiaohongshu-marketing.md          # Marketing strategy guide
     ├── playwright-environment.md          # Technical reference
     ├── xiaohongshu-publish-page-deep-dive.md  # Publish page DOM deep reference
@@ -41,7 +42,8 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
     ├── xiaohongshu-mcp-server-setup.md   # MCP server setup
     ├── session-learnings-2026-05-15.md   # Session learnings (2026-05-15)
     ├── session-learnings-2026-05-16.md   # Session learnings (2026-05-16)
-    └── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough, Retina coords, GitHub workflow
+    ├── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough
+    ├── session-learnings-2026-05-18.md   # Session learnings (2026-05-18) — emoji rendering, base64 bg, content pipeline
     └── github-workflow.md                # GitHub upload workflow
 ```
 
