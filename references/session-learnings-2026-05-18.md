@@ -119,3 +119,46 @@ combined = list(dict.fromkeys(urls + urls2))
 **Never use Pillow's `ImageFont.truetype()` with Apple Color Emoji.** Always use Playwright HTML rendering or CDN PNG approach for emoji in cover images.
 
 **For covers with real photos:** Base64-embed images in HTML `background-image` URLs. Use CSS gradient overlays for text readability.
+
+## Script Consolidation — Publish Scripts (11:00 AM session)
+
+### Problem
+Three publish scripts existed with overlapping functionality:
+- `xhs_publish.py` (v9): async, _onPublish() auto-publish
+- `xhs_publish_v8.py`: sync, Patchright, Bezier mouse, keyboard typing
+- `xhs_publish_cdp_sync.py`: sync, Patchright, CDP WS resolve, home-first nav
+
+### Solution
+Merged all useful features into `xhs_publish.py` v10:
+- **From v8**: Bezier curve mouse movement, keyboard typing fallback, overlay hiding, tab click
+- **From cdp_sync**: CDP WS URL manual resolution, home-first SPA state clear, tab detection
+- **From v9 (kept)**: _onPublish() auto-publish, async API
+
+Deleted `xhs_publish_v8.py` and `xhs_publish_cdp_sync.py`.
+
+### New Scripts Created This Session
+- `xhs_image_pipeline.py`: All-in-one image search → download → cover render
+- `xhs_content_generator.py`: Viral content generator (titles + body + hashtags + cover designs)
+  - Auto-invokes `xhs_image_pipeline.py` for cover generation
+  - Supports --style (funny/emotional/inspirational/savage/warm)
+  - Supports --agent-prompt for LLM prompt output
+
+### User Preference: Self-Review Before Sharing
+User explicitly requested: "自己Review下再通过飞书发给我看看"
+- Always visually review cover images before sending via Feishu
+- Check: font sizes readable, emoji rendering correctly, layout centered, overall aesthetic
+- Use `MEDIA:/absolute/path` for Feishu image delivery
+- Send all cover variants so the user can choose the best one
+- Apply this quality gate to ALL outputs (images, content, code)
+
+### Architecture Pattern Established
+The skill now has a clear layered pipeline architecture:
+```
+xhs_content_generator.py  (content layer)
+    └── invokes → xhs_image_pipeline.py  (image layer)
+            └── invokes → render_covers.py  (render layer)
+                    └── invokes → Playwright + HTML  (browser layer)
+
+xhs_publish.py  (publish layer — standalone, invoked by agent)
+```
+Each layer is a separate script. The agent orchestrates them, feeding outputs from one to the next.

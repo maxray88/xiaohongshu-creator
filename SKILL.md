@@ -54,6 +54,16 @@ PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
 
 **Data directory**: `~/.xiaohongshu-creator/` (cookies, session state)
 
+## Quality Gate: Self-Review Before Sharing
+
+**Always self-review outputs before sending to the user.** This is a hard requirement:
+1. **Cover images**: Open/preview covers visually before sending via Feishu. Check: font sizes readable, emoji rendering correctly, layout centered, overall aesthetic quality.
+2. **Content**: Read through generated titles and body text. Check: title ≤20 chars, body has proper hook/story/value/CTA structure, hashtags relevant.
+3. **Code/scripts**: Verify syntax with `py_compile` before declaring done.
+4. **Screenshots**: When publishing, review screenshots at each step to catch issues early.
+
+**Feishu delivery**: Use `MEDIA:/absolute/path/to/file` for images. Send all cover variants so the user can choose. Never send unverified outputs.
+
 ## Prerequisites
 
 Playwright and Chromium should already be installed in the Hermes venv. If not:
@@ -67,6 +77,32 @@ $PYTHON -m playwright install chromium
 > ⚠️ **Important**: Always use the venv Python path above, NOT system python3.
 
 ## Workflow
+
+### 🚀 Quick Start: One-Command Auto-Publish
+
+The fastest way to publish — just provide a topic:
+
+```bash
+PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_auto_publish.py \
+    --topic "蜡笔小新妈妈美伢的辛酸史" \
+    --style "emotional" \
+    --emoji "😭"
+```
+
+This single command runs the full pipeline:
+1. **Content Generation** — 5 viral titles, full body, 10 hashtags, 3 cover designs
+2. **Image Search + Cover Rendering** — Bing search → Playwright HTML covers
+3. **Auto-Publish** — CDP → fill form → `_onPublish()` → done!
+
+**Options:**
+- `--style`: auto | funny | emotional | inspirational | savage | warm
+- `--emoji`: Primary emoji (e.g., 😭 🌸 🔥 ❤️)
+- `--dry-run`: Generate content + covers, skip publishing
+- `--from-json`: Use existing `post_data.json` (skip content generation)
+- `--output`: Output directory (default: `/tmp/xhs_auto_post`)
+
+---
 
 ### Step 1: Login (First Time / Session Expired)
 
@@ -185,14 +221,23 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
   --images /path/to/image1.jpg /path/to/image2.jpg
 ```
 
-The publish script will:
-1. Automatically fill the title and content fields
-2. Upload the specified images
-3. **Automatically click the publish button** via `_onPublish()` — no manual interaction needed!
+The publish script (v10) will:
+1. **Resolve CDP WebSocket URL** — from file or manual `/json/version` endpoint
+2. **Clear SPA state** — navigate via home page first to avoid stale Vue state
+3. **Detect & switch to image tab** — Bezier-curve human-like click on "上传图文" tab
+4. **Upload images** — via file input (triggers form to render)
+5. **Fill title** — JS nativeSetter (primary) → keyboard typing (fallback)
+6. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
+7. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
+8. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
+9. **Verify result** — checks URL + page text for 发布成功/审核/草稿
+10. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
 
 > ✅ **Fully Automatic Publishing** (since 2026-05-17): The `xhs-publish-btn` Custom Element's `_onPublish()` method is called directly via JS, bypassing `event.isTrusted`. No manual click required.
 
 > ⚠️ **CRITICAL**: Do NOT click the sidebar "发布笔记" button (class `publish-video`, at viewport ~x=80, y=90). That's a NAVIGATION button that goes to the publish page. The actual publish button is `xhs-publish-btn` inside the form. Use `_onPublish()` to trigger it.
+
+> 📝 **Note**: Old publish scripts (`xhs_publish_v8.py`, `xhs_publish_cdp_sync.py`) have been removed. `xhs_publish.py` v10 is the single authoritative publish script.
 
 ### Step 5: Track Performance
 
