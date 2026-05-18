@@ -385,5 +385,7 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | JS syntax error in `page.evaluate` | Python triple-quoted strings: use `\\\\n` not `\\n`, `\\\\d` not `\\d` in JS code. See `references/playwright-environment.md` |
 | `OSError: invalid pixel size` with emoji font | Pillow cannot render Apple Color Emoji. Use Playwright HTML rendering or CDN PNG approach. See `references/session-learnings-2026-05-18.md` |
 | Cover emoji shows as blank/boxes | Same root cause — Pillow's FreeType driver cannot handle bitmap-based color emoji fonts. Switch to Playwright HTML rendering. |
-| Cover fonts too small on mobile | Minimum sizes: Title ≥112px, Subtitle ≥60px, CTA ≥54px, Button ≥42px. User explicitly rejected smaller sizes. |
+| Content generator outputs `__AGENT_PROCESS__` and stops | Expected behavior -- the script cannot call LLM from subprocess. Agent must: (1) read prompt from `/tmp/xhs_content_prompt.txt`, (2) generate JSON via LLM, (3) save to `post_data.json`, (4) re-run with `--from-json`. See `references/session-learnings-2026-05-18-p2.md`. |
+| Analytics report has swapped values | Always verify data mapping against raw API output before sending reports. Double-check column alignment. |
 | Content generator outputs `__AGENT_PROCESS__` | Expected — agent must read prompt, generate JSON, save to `post_data.json`, then re-run with `--from-json` |
+| `KeyError: '\\n  "titles"'` when running content generator | Prompt template JSON examples use single `{}` instead of escaped `{{}}`. Fix: ensure `templates/xhs_content_prompt_template.md` uses `{{}}` for all JSON example braces. See `references/session-learnings-2026-05-18-p2.md` |

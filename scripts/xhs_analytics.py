@@ -194,17 +194,19 @@ def parse_note_data(raw_notes):
                 if line not in ('权限设置', '置顶', '编辑', '删除'):
                     note['title'] = line
         
-        # Assign numbers to stats (platform order: 曝光, 点赞, 评论, 收藏, 分享)
+        # Assign numbers to stats
+        # Platform actual column order: 曝光, 评论, 点赞, 收藏, 分享
+        # (verified: comments column comes before likes column in the note list)
         if len(numbers) >= 5:
             note['exposure'] = numbers[0]
-            note['likes'] = numbers[1]
-            note['comments'] = numbers[2]
+            note['comments'] = numbers[1]
+            note['likes'] = numbers[2]
             note['saves'] = numbers[3]
             note['shares'] = numbers[4]
         elif len(numbers) >= 3:
             note['exposure'] = numbers[0]
-            note['likes'] = numbers[1]
-            note['comments'] = numbers[2]
+            note['comments'] = numbers[1]
+            note['likes'] = numbers[2]
         
         if note['title']:
             parsed.append(note)
