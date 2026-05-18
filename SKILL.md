@@ -26,11 +26,22 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── xhs_analytics.py                  # Analytics: account & post metrics
 │   ├── xhs_hashtags.py                   # Hashtag research & trending topics
 │   ├── xhs_comments.py                   # Comment management
-│   └── xhs_engage.py                     # Engagement automation
+│   ├── xhs_engage.py                     # Engagement automation
+│   └── render_covers.py                  # Cover image renderer (Playwright + HTML)
 └── references/
     ├── xiaohongshu-content-gen.md        # Content generation guide
     ├── xiaohongshu-marketing.md          # Marketing strategy guide
-    └── playwright-environment.md          # Technical reference
+    ├── playwright-environment.md          # Technical reference
+    ├── xiaohongshu-publish-page-deep-dive.md  # Publish page DOM deep reference
+    ├── best-practices.md                  # Best practices & pitfalls
+    ├── cdp-mode-with-patchright.md       # CDP + Patchright setup
+    ├── image-acquisition-and-composition.md  # Image acquisition guide
+    ├── openverse-search-findings.md         # Openverse search limitations for anime characters
+    ├── xiaohongshu-mcp-server-setup.md   # MCP server setup
+    ├── session-learnings-2026-05-15.md   # Session learnings (2026-05-15)
+    ├── session-learnings-2026-05-16.md   # Session learnings (2026-05-16)
+    └── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough, Retina coords, GitHub workflow
+    └── github-workflow.md                # GitHub upload workflow
 ```
 
 **Python**: Use the Hermes agent venv Python for all scripts:
@@ -74,7 +85,46 @@ Key principles:
 
 **Content file workflow**: Write content to a temp file first (`/tmp/xhs_content_<topic>.txt`), then load with `CONTENT=$(cat /tmp/xhs_content_<topic>.txt)` and pass `--content "$CONTENT"` to the publish script. This avoids JS string escaping issues with special characters.
 
-**Cover image**: If no stock photo is available, use Pillow to generate a 1080x1440 warm gradient cover with white title/CTA boxes. See session learnings for code pattern.
+**Cover image**: Use the all-in-one pipeline script (recommended):
+
+```bash
+PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_image_pipeline.py \
+    --query "Crayon Shinchan Misae mom" \
+    --title "美伢的5个真相" \
+    --emoji "😭" \
+    --subtitle "看完妈妈们都哭了" \
+    --cta "你家娃也这样吗？" \
+    --output /tmp/xhs_covers
+```
+
+This single command searches Bing, downloads images, and renders 3 cover variants.
+
+**Alternative — step by step**:
+1. Search & download: Use `xhs_image_pipeline.py --query "..." --output /tmp/xhs_covers` (saves to `_images/` subdir)
+2. Render covers: Use `render_covers.py --bg /path/to/image.jpg --title "..." --output /tmp/cover.jpg`
+3. Pick the best cover and publish with `xhs_publish.py`
+
+See `references/image-acquisition-and-composition.md` for the full workflow.
+
+**⚠️ Pillow emoji limitation**: `ImageFont.truetype("Apple Color Emoji.ttc", size)` throws `OSError: invalid pixel size`. Pillow cannot render color emoji fonts. Use Playwright HTML rendering or emoji CDN PNGs instead.
+
+**Font choices for covers**:
+- **Title**: Comic Sans MS Bold 112px (playful, matches anime theme)
+- **Subtitle**: Arial Rounded Bold 60px
+- **CTA**: STHeiti Medium 54px
+- **Button**: STHeiti Medium 42px
+- **Emoji**: Rendered natively by browser (108px) — perfect color
+- **Reliable in sandbox**: `STHeiti Medium.ttc`, `Comic Sans MS Bold.ttf`, `Arial Rounded Bold.ttf`
+- **Avoid**: `PingFang.ttc` — may fail with `OSError` in sandbox
+
+**Xiaohongshu-style cover design (v2)**:
+- Real photo backgrounds with gradient overlay (top/bottom dark, center transparent)
+- Accent color lines (16-18px) at top and bottom edges
+- Top title area: ~380px with gradient overlay
+- Bottom CTA area: ~280px with pill-shaped button
+- CTA asks personal question (not yes/no) to encourage comments
+- 1080×1440 (3:4 portrait)
 
 ### Step 3: Research Hashtags
 
@@ -99,6 +149,8 @@ The publish script will:
 3. **Automatically click the publish button** via `_onPublish()` — no manual interaction needed!
 
 > ✅ **Fully Automatic Publishing** (since 2026-05-17): The `xhs-publish-btn` Custom Element's `_onPublish()` method is called directly via JS, bypassing `event.isTrusted`. No manual click required.
+
+> ⚠️ **CRITICAL**: Do NOT click the sidebar "发布笔记" button (class `publish-video`, at viewport ~x=80, y=90). That's a NAVIGATION button that goes to the publish page. The actual publish button is `xhs-publish-btn` inside the form. Use `_onPublish()` to trigger it.
 
 ### Step 5: Track Performance
 
@@ -191,7 +243,11 @@ $PYTHON xhs_engage.py --action history
 
 > ⚠️ **Warning**: Use auto-engage responsibly. Excessive automation may trigger bot detection. The creator platform is primarily for publishing and analytics — full engagement features require the main XHS app.
 
-## Session Management
+## GitHub Repository
+
+The skill is maintained at: https://github.com/maxray88/xiaohongshu-creator
+
+See `references/github-workflow.md` for upload/push workflow.
 
 ### Check if session is valid
 ```bash
@@ -226,6 +282,9 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `Page.goto timeout` | The creator platform is slow; the script uses `wait_until="commit"` to handle this |
 | `Could not find title/content input` | Page may not have fully loaded; check the browser window manually |
 | `Could not find publish button` | Button may have a different label; check the DOM and update selectors |
+| `event.isTrusted` check blocks all programmatic clicks | Use `btn._onPublish()` directly — see `references/session-learnings-2026-05-17.md` |
+| `xhs-publish-btn` innerHTML is empty | Normal — it's a closed-shadow DOM Custom Element. Use `_onPublish()` method. |
+| PyAutoGUI click doesn't work | On macOS Retina: no DPR multiplication needed. But `_onPublish()` is more reliable. |
 | Upload fails | Ensure images are JPG/PNG/WebP, max 32MB each, max 18 images |
 | Bot detection / CAPTCHA | Use `--headless=false` (default) and ensure cookies are from a real login |
 | Login not detected | Use `--manual` flag and press Enter after logging in |
