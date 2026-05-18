@@ -21,15 +21,16 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 ~/.hermes/skills/xiaohongshu-creator/
 ├── SKILL.md                              # This file - main workflow
 ├── scripts/
+│   ├── xhs_auto_publish.py               # 🚀 Orchestrator: content → images → publish (FULL PIPELINE)
+│   ├── xhs_content_generator.py          # Viral content generator (titles + body + hashtags + cover designs)
+│   ├── xhs_image_pipeline.py             # All-in-one: search → download → cover render
+│   ├── xhs_publish.py                    # Publish: CDP → fill form → _onPublish() (v10, merged)
 │   ├── xhs_login.py                      # Login: open Chrome, save cookies
-│   ├── xhs_publish.py                    # Publish: upload images + post
 │   ├── xhs_analytics.py                  # Analytics: account & post metrics
 │   ├── xhs_hashtags.py                   # Hashtag research & trending topics
 │   ├── xhs_comments.py                   # Comment management
 │   ├── xhs_engage.py                     # Engagement automation
-│   ├── render_covers.py                  # Cover image renderer (Playwright + HTML)
-│   ├── xhs_image_pipeline.py             # All-in-one: search → download → cover
-│   └── xhs_content_generator.py          # Viral content generator (titles + body + hashtags + covers)
+│   └── render_covers.py                  # Cover image renderer (Playwright + HTML, standalone)
 └── references/
     ├── xiaohongshu-content-gen.md        # Content generation guide & viral formula
     ├── xiaohongshu-marketing.md          # Marketing strategy guide
@@ -134,11 +135,18 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
     --output /tmp/xhs_post
 ```
 
+**⚠️ IMPORTANT — LLM Architecture**: `xhs_content_generator.py` does NOT call the LLM itself. It outputs a prompt for the agent to process:
+1. Run the script → it outputs `__AGENT_PROCESS__` signal + saves prompt to `/tmp/xhs_content_prompt.txt`
+2. The **agent** (Hermes) must read the prompt, generate JSON content via its built-in LLM
+3. Agent writes JSON to `{output_dir}/content/post_data.json`
+4. Re-run with `--from-json` to continue the pipeline
+
 **Options:**
 - `--style`: auto | funny | emotional | inspirational | savage | warm
 - `--emoji`: Primary emoji for the post (e.g., 😭 🌸 🔥 ❤️)
 - `--no-images`: Skip cover image generation (content only)
 - `--from-json`: Load content from existing JSON file (to regenerate covers)
+- `--agent-prompt`: Output only the LLM prompt for inline agent processing
 
 **Output files in `--output` directory:**
 - `content.txt` — Title + body + CTA + hashtags (ready to publish)
@@ -146,13 +154,6 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
 - `post_preview.txt` — Formatted preview of the complete post
 - `cover_best.jpg` — Best cover image (if image generation enabled)
 - `cover_*/` — Individual cover variant directories
-
-**For agent-driven generation (LLM prompt output):**
-```bash
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
-    --topic "Topic here" --agent-prompt
-```
-This outputs the raw LLM prompt for the agent to process with its built-in LLM.
 
 Key principles:
 - **Title**: ≤20 chars, emotional hooks, numbers, or questions
@@ -383,3 +384,4 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `OSError: invalid pixel size` with emoji font | Pillow cannot render Apple Color Emoji. Use Playwright HTML rendering or CDN PNG approach. See `references/session-learnings-2026-05-18.md` |
 | Cover emoji shows as blank/boxes | Same root cause — Pillow's FreeType driver cannot handle bitmap-based color emoji fonts. Switch to Playwright HTML rendering. |
 | Cover fonts too small on mobile | Minimum sizes: Title ≥112px, Subtitle ≥60px, CTA ≥54px, Button ≥42px. User explicitly rejected smaller sizes. |
+| Content generator outputs `__AGENT_PROCESS__` | Expected — agent must read prompt, generate JSON, save to `post_data.json`, then re-run with `--from-json` |

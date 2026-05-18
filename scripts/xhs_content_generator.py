@@ -1,23 +1,23 @@
 """
-Xiaohongshu Viral Content Generator — All-in-One
+Xiaohongshu Viral Content Generator - All-in-One
 ==================================================
 Given a topic, generates:
-  1. 5 viral title options (≤20 Chinese chars each)
-  2. Full body content (hook → story → value → CTA)
+  1. 5 viral title options (<=20 Chinese chars each)
+  2. Full body content (hook -> story -> value -> CTA)
   3. 10 optimized hashtags
   4. Cover image descriptions
   5. Auto-invokes xhs_image_pipeline.py for cover generation
 
 Usage:
-    $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
-        --topic "蜡笔小新妈妈美伢的辛酸史" \
+    $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \\
+        --topic "蜡笔小新妈妈美伢的辛酸史" \\
         --output /tmp/xhs_post
 
     # With custom style:
-    $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
-        --topic "Topic here" \
-        --style "funny" \
-        --emoji "😭" \
+    $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \\
+        --topic "Topic here" \\
+        --style "funny" \\
+        --emoji "😭" \\
         --output /tmp/xhs_post
 
 Requirements: LLM access (via Hermes agent), requests, playwright, Pillow
@@ -26,9 +26,26 @@ Requirements: LLM access (via Hermes agent), requests, playwright, Pillow
 import argparse, asyncio, json, os, subprocess, sys, textwrap
 from datetime import datetime
 
+
 # ─── LLM Prompt Template ──────────────────────────────────────────────────────
 
-CONTENT_PROMPT_TEMPLATE = """# Role: Expert Xiaohongshu (Red) Content Creator & Viral Marketing Strategist
+# Template is loaded from the skill's templates directory.
+# This allows updating the prompt without modifying the script.
+_TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+_TEMPLATE_FILE = os.path.join(_TEMPLATE_DIR, "xhs_content_prompt_template.md")
+
+
+def _load_prompt_template() -> str:
+    """Load the content generation prompt template from the skill's templates directory."""
+    if os.path.exists(_TEMPLATE_FILE):
+        with open(_TEMPLATE_FILE, "r", encoding="utf-8") as f:
+            return f.read()
+    # Fallback: use embedded template (for backward compatibility)
+    return _EMBEDDED_PROMPT_TEMPLATE
+
+
+# Embedded fallback template (used when template file is not found)
+_EMBEDDED_PROMPT_TEMPLATE = """# Role: Expert Xiaohongshu (Red) Content Creator & Viral Marketing Strategist
 
 You are a top-tier influencer on Xiaohongshu (Red), known for creating viral posts that perfectly balance emotional resonance, sharp humor, and high aesthetic value.
 
@@ -40,7 +57,7 @@ Create a complete Xiaohongshu post for the topic above.
 
 ## Output Requirements
 
-### 1. Eye-Catching Titles (5 options, each ≤20 Chinese characters)
+### 1. Eye-Catching Titles (5 options, each <=20 Chinese characters)
 - Use "Clickbait" logic but keep it high-quality
 - Incorporate numbers, emotional triggers (FOMO, curiosity, "life-changing"), or trending slang
 - Rank by viral potential (best first)
@@ -60,7 +77,7 @@ Create a complete Xiaohongshu post for the topic above.
 ### 3. Cover Image Suggestions (3 variants)
 For each cover, describe:
 - Background image search query (in English, for Bing search)
-- Main title text (short, ≤10 chars)
+- Main title text (short, <=10 chars)
 - Emoji to use
 - Subtitle text
 - CTA question
@@ -68,7 +85,7 @@ For each cover, describe:
 
 ### 4. Interaction & CTA
 - End with a clever, low-friction question to force people to comment
-- NOT a yes/no question — ask for personal stories or opinions
+- NOT a yes/no question - ask for personal stories or opinions
 
 ### 5. Optimized Hashtags (10 total)
 - Mix of broad + niche + trending + content-specific
@@ -79,18 +96,17 @@ For each cover, describe:
 ## Output Format (STRICT JSON)
 
 ```json
-{{
+{
   "titles": [
-    {{"rank": 1, "text": "标题1", "chars": 6, "viral_score": 95}},
-    {{"rank": 2, "text": "标题2", "chars": 8, "viral_score": 90}},
-    ...
+    {"rank": 1, "text": "标题1", "chars": 6, "viral_score": 95},
+    {"rank": 2, "text": "标题2", "chars": 8, "viral_score": 90}
   ],
   "selected_title": "最佳标题",
-  "body": "完整的正文内容（包含emoji）",
+  "body": "完整的正文内容(包含emoji)",
   "cta": "互动引导问题",
-  "hashtags": ["#标签1", "#标签2", ...],
+  "hashtags": ["#标签1", "#标签2"],
   "covers": [
-    {{
+    {
       "variant": 1,
       "search_query": "English search query for background image",
       "title": "封面标题",
@@ -98,16 +114,15 @@ For each cover, describe:
       "subtitle": "副标题",
       "cta": "互动问题",
       "color_mood": "#dc3c3c"
-    }},
-    ...
+    }
   ]
-}}
+}
 ```
 
 ## Important
 - Output ONLY valid JSON, no markdown code fences, no extra text
 - All text must be in Chinese (Simplified)
-- Title character counts must be accurate (each ≤20)
+- Title character counts must be accurate (each <=20)
 - Body content should be 200-500 characters
 - Make it genuinely viral-worthy, not generic
 """
@@ -116,9 +131,9 @@ For each cover, describe:
 # ─── Title Patterns (for validation/enhancement) ──────────────────────────────
 
 TITLE_PATTERNS = {
-    "emotional": ["后悔没早点知道！", "天呐！终于找到了", "救命！太好用了", "姐妹们！这个真的绝了"],
+    "emotional": ["后悔没早点知道!", "天呐!终于找到了", "救命!太好用了", "姐妹们!这个真的绝了"],
     "number": ["{}个技巧让你", "分钟学会", "大真相", "个秘密"],
-    "question": ["你还在为{}发愁吗？", "你知道{}吗？", "为什么{}？"],
+    "question": ["你还在为{}发愁吗?", "你知道{}吗?", "为什么{}?"],
     "transformation": ["从{}到{}我只用了", "逆袭{}我只用了"],
     "secret": ["偷偷告诉你们", "压箱底的{}分享", "我的{}秘密"],
     "fomo": ["不看你就亏了", "赶紧收藏", "错过后悔一年"],
@@ -173,14 +188,14 @@ class XiaohongshuContentGenerator:
         self.result = {}
 
     def _build_prompt(self) -> str:
-        """Build the LLM prompt."""
+        """Build the LLM prompt from the template file."""
+        template = _load_prompt_template()
         topic_with_style = self.topic
         if self.style != "auto":
-            topic_with_style = f"{self.topic} (风格: {self.style})"
+            topic_with_style = f"{self.topic} (style: {self.style})"
         if self.emoji:
-            topic_with_style += f" (主emoji: {self.emoji})"
-
-        return CONTENT_PROMPT_TEMPLATE.format(topic=topic_with_style)
+            topic_with_style += f" (emoji: {self.emoji})"
+        return template.format(topic=topic_with_style)
 
     def _call_llm(self, prompt: str) -> str:
         """
@@ -197,7 +212,7 @@ class XiaohongshuContentGenerator:
         with open(prompt_file, "w", encoding="utf-8") as f:
             f.write(prompt)
 
-        # Check if we're running inside the Hermes agent context
+        # Check if we are running inside the Hermes agent context
         # (the agent will handle this via its own LLM)
         # For standalone mode, return a signal for the agent to process
         return f"__AGENT_PROCESS__:{prompt_file}:{response_file}"
@@ -217,7 +232,7 @@ class XiaohongshuContentGenerator:
         try:
             return json.loads(raw)
         except json.JSONDecodeError as e:
-            print(f"  ⚠️  JSON parse error: {e}")
+            print(f"  WARNING: JSON parse error: {e}")
             print(f"  Raw response (first 500 chars): {raw[:500]}")
             # Try to extract JSON from the response
             import re
@@ -236,7 +251,7 @@ class XiaohongshuContentGenerator:
             text = t.get("text", "")
             chars = len(text)
             if chars > 20:
-                print(f"  ⚠️  Title too long ({chars} chars): '{text}' — truncating")
+                print(f"  WARNING: Title too long ({chars} chars): '{text}' - truncating")
                 text = text[:20]
                 chars = 20
             t["text"] = text
@@ -316,7 +331,7 @@ def run_image_pipeline(cover_designs: list, output_dir: str) -> list:
     )
 
     if not os.path.exists(pipeline_script):
-        print(f"  ⚠️  Pipeline script not found: {pipeline_script}")
+        print(f"  WARNING: Pipeline script not found: {pipeline_script}")
         return []
 
     covers = []
@@ -328,7 +343,7 @@ def run_image_pipeline(cover_designs: list, output_dir: str) -> list:
         cta = design.get("cta", "")
 
         if not query:
-            print(f"  ⚠️  Cover {i+1}: No search query, skipping")
+            print(f"  WARNING: Cover {i+1}: No search query, skipping")
             continue
 
         cover_output = os.path.join(output_dir, f"cover_{i+1}")
@@ -345,8 +360,8 @@ def run_image_pipeline(cover_designs: list, output_dir: str) -> list:
             "--count", "5",
         ]
 
-        print(f"\n  🖼️  Generating cover {i+1}: {title} {emoji}")
-        print(f"     Query: {query}")
+        print(f"\n  Cover {i+1}: {title} {emoji}")
+        print(f"    Query: {query}")
 
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
@@ -355,13 +370,13 @@ def run_image_pipeline(cover_designs: list, output_dir: str) -> list:
                 for f in os.listdir(cover_output):
                     if f.endswith(".jpg") and "_preview" not in f:
                         covers.append(os.path.join(cover_output, f))
-                print(f"     ✅ Cover generated")
+                print(f"    OK Cover generated")
             else:
-                print(f"     ❌ Pipeline error: {result.stderr[:200]}")
+                print(f"    FAIL Pipeline error: {result.stderr[:200]}")
         except subprocess.TimeoutExpired:
-            print(f"     ❌ Pipeline timeout")
+            print(f"    FAIL Pipeline timeout")
         except Exception as e:
-            print(f"     ❌ Pipeline exception: {e}")
+            print(f"    FAIL Pipeline exception: {e}")
 
     return covers
 
@@ -372,24 +387,24 @@ def format_post_output(data: dict, cover_paths: list = None) -> str:
     """Format the complete post output."""
     lines = []
     lines.append("=" * 60)
-    lines.append("📱 XIAOHONGSHU POST — READY TO PUBLISH")
+    lines.append("XIAOHONGSHU POST - READY TO PUBLISH")
     lines.append("=" * 60)
 
     # Titles
-    lines.append("\n📌 TITLE OPTIONS (ranked by viral potential):")
+    lines.append("\nTITLE OPTIONS (ranked by viral potential):")
     lines.append("-" * 40)
     for t in data.get("titles", []):
         rank = t.get("rank", "?")
         text = t.get("text", "")
         chars = t.get("chars", len(text))
         score = t.get("viral_score", "?")
-        lines.append(f"  {rank}. 「{text}」 ({chars}字) [viral: {score}]")
+        lines.append(f"  {rank}. [{text}] ({chars} chars) [viral: {score}]")
 
     selected = data.get("selected_title", data.get("titles", [{}])[0].get("text", ""))
-    lines.append(f"\n  ⭐ SELECTED: 「{selected}」")
+    lines.append(f"\n  SELECTED: [{selected}]")
 
     # Body
-    lines.append("\n📝 BODY CONTENT:")
+    lines.append("\nBODY CONTENT:")
     lines.append("-" * 40)
     body = data.get("body", "")
     lines.append(body)
@@ -397,27 +412,27 @@ def format_post_output(data: dict, cover_paths: list = None) -> str:
     # CTA
     cta = data.get("cta", "")
     if cta:
-        lines.append(f"\n💬 CTA: {cta}")
+        lines.append(f"\nCTA: {cta}")
 
     # Hashtags
     hashtags = data.get("hashtags", [])
     if hashtags:
-        lines.append("\n🏷️  HASHTAGS:")
+        lines.append("\nHASHTAGS:")
         lines.append("-" * 40)
         lines.append(" ".join(hashtags))
 
     # Covers
     if cover_paths:
-        lines.append("\n🖼️  COVER IMAGES:")
+        lines.append("\nCOVER IMAGES:")
         lines.append("-" * 40)
         for p in cover_paths:
             size = os.path.getsize(p) // 1024 if os.path.exists(p) else 0
-            lines.append(f"  📄 {p} ({size}KB)")
+            lines.append(f"  {p} ({size}KB)")
 
     # Cover descriptions
     covers = data.get("covers", [])
     if covers:
-        lines.append("\n🎨 COVER DESIGN DESCRIPTIONS:")
+        lines.append("\nCOVER DESIGN DESCRIPTIONS:")
         lines.append("-" * 40)
         for c in covers:
             lines.append(f"\n  Variant {c.get('variant', '?')}:")
@@ -478,7 +493,7 @@ def save_post_files(data: dict, output_dir: str, cover_paths: list = None):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Xiaohongshu Viral Content Generator — All-in-One",
+        description="Xiaohongshu Viral Content Generator - All-in-One",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -507,76 +522,74 @@ Examples:
 
     args = parser.parse_args()
 
-    print("🎯 Xiaohongshu Viral Content Generator")
+    print("Xiaohongshu Viral Content Generator")
     print("=" * 60)
 
-    # ── Load or Generate Content ───────────────────────────────────────────
+    # Load or Generate Content
     if args.from_json:
-        print(f"\n📂 Loading content from: {args.from_json}")
+        print(f"\nLoading content from: {args.from_json}")
         with open(args.from_json, "r", encoding="utf-8") as f:
             data = json.load(f)
     elif args.agent_prompt:
-        # Output prompt for agent to process
         gen = XiaohongshuContentGenerator(args.topic, args.style, args.emoji)
         prompt = gen._build_prompt()
         print(prompt)
         return
     else:
-        print(f"\n📝 Topic: {args.topic}")
-        print(f"🎨 Style: {args.style}")
+        print(f"\nTopic: {args.topic}")
+        print(f"Style: {args.style}")
         if args.emoji:
-            print(f"😀 Emoji: {args.emoji}")
+            print(f"Emoji: {args.emoji}")
 
         gen = XiaohongshuContentGenerator(args.topic, args.style, args.emoji)
         data = gen.generate()
 
-        # Check if agent processing is needed
         if data.get("__needs_agent_processing__"):
-            print("\n🤖 Agent processing required.")
-            print(f"📄 Prompt saved to: {data['prompt_file']}")
-            print(f"📄 Response will be saved to: {data['response_file']}")
+            print("\nAgent processing required.")
+            print(f"Prompt saved to: {data['prompt_file']}")
+            print(f"Response will be saved to: {data['response_file']}")
             print("\nPrompt:")
             print("-" * 40)
             print(data["prompt"])
             return
 
     if "error" in data:
-        print(f"\n❌ Error: {data['error']}")
+        print(f"\nError: {data['error']}")
         sys.exit(1)
 
-    # ── Display Results ────────────────────────────────────────────────────
+    # Display Results
     print("\n" + format_post_output(data))
 
-    # ── Save Files ─────────────────────────────────────────────────────────
+    # Save Files
     os.makedirs(args.output, exist_ok=True)
     files = save_post_files(data, args.output)
-    print(f"\n📁 Files saved to: {args.output}")
+    print(f"\nFiles saved to: {args.output}")
     for name, path in files.items():
-        print(f"  📄 {name}: {path}")
+        print(f"  {name}: {path}")
 
-    # ── Generate Cover Images ──────────────────────────────────────────────
+    # Generate Cover Images
     cover_paths = []
     if not args.no_images:
         covers = data.get("covers", [])
         if covers:
-            print(f"\n🖼️  Generating {len(covers)} cover images...")
+            print(f"\nGenerating {len(covers)} cover images...")
             cover_paths = run_image_pipeline(covers, args.output)
             if cover_paths:
-                print(f"\n  ✅ {len(cover_paths)} covers generated:")
+                print(f"\n  {len(covers)} covers generated:")
                 for p in cover_paths:
-                    print(f"    📄 {p}")
+                    print(f"    {p}")
             else:
-                print("\n  ⚠️  No covers generated. Use --no-images to skip.")
+                print("\n  No covers generated. Use --no-images to skip.")
 
-    # ── Final Summary ──────────────────────────────────────────────────────
+    # Final Summary
     print("\n" + "=" * 60)
-    print("✅ POST READY!")
+    print("POST READY!")
     print("=" * 60)
-    print(f"\n📌 Title: {data.get('selected_title', 'N/A')}")
-    print(f"📝 Content: {files['content']}")
+    print(f"\nTitle: {data.get('selected_title', 'N/A')}")
+    print(f"Content: {files['content']}")
     if cover_paths:
-        print(f"🖼️  Best cover: {os.path.join(args.output, 'cover_best.jpg')}")
-    print(f"\n📤 Publish command:")
+        print(f"Best cover: {os.path.join(args.output, 'cover_best.jpg')}")
+    print(f"\nPublish command:")
     print(f"  PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3")
     print(f"  $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \\")
     print(f"    --title \"{data.get('selected_title', '')}\" \\")

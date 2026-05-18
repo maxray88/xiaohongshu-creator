@@ -154,11 +154,31 @@ User explicitly requested: "自己Review下再通过飞书发给我看看"
 ### Architecture Pattern Established
 The skill now has a clear layered pipeline architecture:
 ```
-xhs_content_generator.py  (content layer)
-    └── invokes → xhs_image_pipeline.py  (image layer)
-            └── invokes → render_covers.py  (render layer)
-                    └── invokes → Playwright + HTML  (browser layer)
-
-xhs_publish.py  (publish layer — standalone, invoked by agent)
+xhs_auto_publish.py  (orchestrator — agent invokes this for full pipeline)
+    ├── invokes → xhs_content_generator.py  (content layer)
+    │       └── invokes → xhs_image_pipeline.py  (image layer)
+    │               └── invokes → render_covers.py  (render layer)
+    │                       └── invokes → Playwright + HTML  (browser layer)
+    └── invokes → xhs_publish.py  (publish layer — standalone)
 ```
-Each layer is a separate script. The agent orchestrates them, feeding outputs from one to the next.
+Each layer is a separate script. The agent (or `xhs_auto_publish.py`) orchestrates them, feeding outputs from one to the next.
+
+### xhs_auto_publish.py — Full Pipeline Orchestrator (12:00 PM session)
+
+Created `xhs_auto_publish.py` as the single entry point for the complete publish pipeline.
+
+**Usage:**
+```bash
+$PYTHON xhs_auto_publish.py --topic "主题" --style "emotional" --emoji "😭"
+```
+
+**Pipeline:**
+1. Step 1: `xhs_content_generator.py` — generates 5 titles, body, hashtags, 3 cover designs
+2. Step 2: `xhs_image_pipeline.py` (per cover design) — Bing search → download → render covers
+3. Step 3: `xhs_publish.py` — CDP connect → fill form → _onPublish() → verify
+
+**Modes:**
+- Full publish (default): all 3 steps
+- `--dry-run`: steps 1-2 only, no publish
+- `--from-json`: skip step 1, use existing post_data.json
+- `--cdp`: custom CDP endpoint
