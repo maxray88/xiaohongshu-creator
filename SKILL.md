@@ -47,6 +47,8 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
     ├── session-learnings-2026-05-16.md   # Session learnings (2026-05-16)
     ├── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough
     ├── session-learnings-2026-05-18.md   # Session learnings (2026-05-18) — emoji rendering, base64 bg, content pipeline
+    ├── session-learnings-2026-05-18-p2.md # Session learnings (2026-05-18 P2) — analytics column order, prompt escaping
+    ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — posting comments on www via CDP, xhs_engage browse fix needed
     └── github-workflow.md                # GitHub upload workflow
 ```
 
@@ -274,6 +276,8 @@ $PYTHON xhs_analytics.py --output json
 - Dashboard: exposure, views, CTR, likes, comments, saves, shares, net new followers
 - Per-note: title, date, exposure, likes, comments, saves, shares
 
+> ⚠️ **Analytics column order**: The note list page columns are: **曝光, 评论, 点赞, 收藏, 分享** (NOT 点赞 before 评论). If likes/comments data looks swapped, check `parse_note_data()` in xhs_analytics.py. See `references/session-learnings-2026-05-18-p2.md`.
+
 ### Hashtag Research
 
 Discover trending topics and analyze competition:
@@ -312,7 +316,40 @@ $PYTHON xhs_comments.py --action list --note-title "蜡笔小新"
 $PYTHON xhs_comments.py --action batch-reply --message "感谢支持！💕"
 ```
 
-> ⚠️ **Note**: The creator platform shows comment counts but direct comment reply may require the main XHS app. Use this script for monitoring and analytics.
+#### Posting Comments on www.xiaohongshu.com (via CDP)
+
+The `xhs_comments.py` script only reads data from the creator platform. To **post comments on the main XHS site** (`www.xiaohongshu.com`), use the CDP approach directly:
+
+```python
+# Connect to logged-in Chrome via CDP
+browser = p.chromium.connect_over_cdp('http://127.0.0.1:9222')
+context = browser.contexts[0]
+page = context.new_page()
+
+# Navigate to user profile (SPA routing required — direct /explore/ URLs return 404)
+page.goto('https://www.xiaohongshu.com/user/profile/<user_id>')
+time.sleep(8)
+
+# Click note card to open it (SPA overlay, URL stays as /explore/<note_id>)
+page.mouse.click(cx, cy)  # center of note card rect
+time.sleep(5)
+
+# Activate comment input (bypass not-active overlay)
+page.click('#content-textarea', force=True)
+time.sleep(1)
+
+# Type and send
+page.keyboard.type("评论内容", delay=80)
+page.click('button.btn.submit', force=True)
+```
+
+**Key pitfalls:**
+- **Direct `/explore/<id>` URLs return 404** (error_code=300031 "当前笔记暂时无法浏览"). Must navigate via profile page click.
+- **Comment input has `not-active` overlay** — use `force=True` or JS `el.click()` to bypass.
+- **Send button**: `button.btn.submit` or `button:has-text("发送")`.
+- **Verify**: Check page text for comment content after sending.
+
+> ✅ **Confirmed working** (2026-05-19): Successfully posted first comment on "小新的幸福生活太治愈了🌸" via CDP.
 
 ### Engagement Automation
 
@@ -332,6 +369,8 @@ $PYTHON xhs_engage.py --action history
 > ⚠️ **Rate Limits**: Max 10 likes/hour, 5 comments/hour. The script enforces these limits automatically.
 
 > ⚠️ **Warning**: Use auto-engage responsibly. Excessive automation may trigger bot detection. The creator platform is primarily for publishing and analytics — full engagement features require the main XHS app.
+
+> ⚠️ **Known issue**: `xhs_engage.py --action browse` currently returns empty results because the inspiration page is a SPA and the text-based parser doesn't match rendered content. Needs DOM-based parsing fix. Use `xhs_hashtags.py` for trending topic research instead.
 
 ## GitHub Repository
 
@@ -385,7 +424,9 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | JS syntax error in `page.evaluate` | Python triple-quoted strings: use `\\\\n` not `\\n`, `\\\\d` not `\\d` in JS code. See `references/playwright-environment.md` |
 | `OSError: invalid pixel size` with emoji font | Pillow cannot render Apple Color Emoji. Use Playwright HTML rendering or CDN PNG approach. See `references/session-learnings-2026-05-18.md` |
 | Cover emoji shows as blank/boxes | Same root cause — Pillow's FreeType driver cannot handle bitmap-based color emoji fonts. Switch to Playwright HTML rendering. |
-| Content generator outputs `__AGENT_PROCESS__` and stops | Expected behavior -- the script cannot call LLM from subprocess. Agent must: (1) read prompt from `/tmp/xhs_content_prompt.txt`, (2) generate JSON via LLM, (3) save to `post_data.json`, (4) re-run with `--from-json`. See `references/session-learnings-2026-05-18-p2.md`. |
-| Analytics report has swapped values | Always verify data mapping against raw API output before sending reports. Double-check column alignment. |
-| Content generator outputs `__AGENT_PROCESS__` | Expected — agent must read prompt, generate JSON, save to `post_data.json`, then re-run with `--from-json` |
-| `KeyError: '\\n  "titles"'` when running content generator | Prompt template JSON examples use single `{}` instead of escaped `{{}}`. Fix: ensure `templates/xhs_content_prompt_template.md` uses `{{}}` for all JSON example braces. See `references/session-learnings-2026-05-18-p2.md` |
+| Content generator outputs `__AGENT_PROCESS__` and stops | Expected behavior — the script cannot call LLM from subprocess. Agent must: (1) read prompt from `/tmp/xhs_content_prompt.txt`, (2) generate JSON via LLM, (3) save to `post_data.json`, (4) re-run with `--from-json`. See `references/session-learnings-2026-05-18-p2.md`. |
+| Analytics likes/comments data swapped | **Platform column order: 曝光, 评论, 点赞, 收藏, 分享** (NOT 点赞 before 评论). Check `parse_note_data()` in xhs_analytics.py. See `references/session-learnings-2026-05-18-p2.md`. |
+| `KeyError: '\\\\n  "titles"'` when running content generator | Prompt template JSON examples use single `{}` instead of escaped `{{}}`. Fix: ensure `templates/xhs_content_prompt_template.md` uses `{{}}` for all JSON example braces. See `references/session-learnings-2026-05-18-p2.md`. |
+| Comment input not clickable on www.xiaohongshu.com | The `#content-textarea` has a `not-active` overlay. Use `force=True`: `page.click('#content-textarea', force=True)` or JS `el.click()`. See `references/session-learnings-2026-05-19.md`. |
+| Direct /explore/ URL returns 404 on www.xiaohongshu.com | error_code=300031 "当前笔记暂时无法浏览". Must navigate via profile page click (SPA routing), not direct URL. See `references/session-learnings-2026-05-19.md`. |
+| xhs_engage.py browse returns empty | Inspiration page SPA doesn't render parseable text. Use `xhs_hashtags.py` instead for trending topics. Needs DOM-based parsing fix. |
