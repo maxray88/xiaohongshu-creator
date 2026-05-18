@@ -96,17 +96,17 @@ For each cover, describe:
 ## Output Format (STRICT JSON)
 
 ```json
-{
+{{
   "titles": [
-    {"rank": 1, "text": "标题1", "chars": 6, "viral_score": 95},
-    {"rank": 2, "text": "标题2", "chars": 8, "viral_score": 90}
+    {{"rank": 1, "text": "标题1", "chars": 6, "viral_score": 95}},
+    {{"rank": 2, "text": "标题2", "chars": 8, "viral_score": 90}}
   ],
   "selected_title": "最佳标题",
   "body": "完整的正文内容(包含emoji)",
   "cta": "互动引导问题",
   "hashtags": ["#标签1", "#标签2"],
   "covers": [
-    {
+    {{
       "variant": 1,
       "search_query": "English search query for background image",
       "title": "封面标题",
@@ -114,9 +114,9 @@ For each cover, describe:
       "subtitle": "副标题",
       "cta": "互动问题",
       "color_mood": "#dc3c3c"
-    }
+    }}
   ]
-}
+}}
 ```
 
 ## Important

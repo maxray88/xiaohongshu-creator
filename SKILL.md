@@ -31,6 +31,8 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── xhs_comments.py                   # Comment management
 │   ├── xhs_engage.py                     # Engagement automation
 │   └── render_covers.py                  # Cover image renderer (Playwright + HTML, standalone)
+├── templates/
+│   └── xhs_content_prompt_template.md  # LLM prompt template for content generation (editable)
 └── references/
     ├── xiaohongshu-content-gen.md        # Content generation guide & viral formula
     ├── xiaohongshu-marketing.md          # Marketing strategy guide
