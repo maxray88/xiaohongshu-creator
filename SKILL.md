@@ -27,7 +27,8 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── xhs_hashtags.py                   # Hashtag research & trending topics
 │   ├── xhs_comments.py                   # Comment management
 │   ├── xhs_engage.py                     # Engagement automation
-│   └── render_covers.py                  # Cover image renderer (Playwright + HTML)
+│   ├── render_covers.py                  # Cover image renderer (Playwright + HTML)
+│   └── xhs_image_pipeline.py             # All-in-one: search → download → cover
 └── references/
     ├── xiaohongshu-content-gen.md        # Content generation guide
     ├── xiaohongshu-marketing.md          # Marketing strategy guide
@@ -77,6 +78,44 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_login.py --manual
 
 See `references/xiaohongshu-content-gen.md` for the full content generation guide.
 
+**🚀 All-in-One Content + Cover Generation (Recommended):**
+
+The `xhs_content_generator.py` script generates everything from a single topic:
+- 5 viral title options (≤20 Chinese chars, ranked by viral potential)
+- Full body content (hook → story → value list → emotional close → CTA)
+- 10 optimized hashtags (broad + niche + trending + emotional)
+- 3 cover image designs with search queries
+- Auto-invokes `xhs_image_pipeline.py` to generate cover images
+
+```bash
+PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
+    --topic "蜡笔小新妈妈美伢的辛酸史" \
+    --style "emotional" \
+    --emoji "😭" \
+    --output /tmp/xhs_post
+```
+
+**Options:**
+- `--style`: auto | funny | emotional | inspirational | savage | warm
+- `--emoji`: Primary emoji for the post (e.g., 😭 🌸 🔥 ❤️)
+- `--no-images`: Skip cover image generation (content only)
+- `--from-json`: Load content from existing JSON file (to regenerate covers)
+
+**Output files in `--output` directory:**
+- `content.txt` — Title + body + CTA + hashtags (ready to publish)
+- `post_data.json` — Structured data (titles, body, hashtags, cover designs)
+- `post_preview.txt` — Formatted preview of the complete post
+- `cover_best.jpg` — Best cover image (if image generation enabled)
+- `cover_*/` — Individual cover variant directories
+
+**For agent-driven generation (LLM prompt output):**
+```bash
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
+    --topic "Topic here" --agent-prompt
+```
+This outputs the raw LLM prompt for the agent to process with its built-in LLM.
+
 Key principles:
 - **Title**: ≤20 chars, emotional hooks, numbers, or questions
 - **Body**: Hook → Story → Value → Close → Hashtags
@@ -109,14 +148,15 @@ See `references/image-acquisition-and-composition.md` for the full workflow.
 
 **⚠️ Pillow emoji limitation**: `ImageFont.truetype("Apple Color Emoji.ttc", size)` throws `OSError: invalid pixel size`. Pillow cannot render color emoji fonts. Use Playwright HTML rendering or emoji CDN PNGs instead.
 
-**Font choices for covers**:
-- **Title**: Comic Sans MS Bold 112px (playful, matches anime theme)
-- **Subtitle**: Arial Rounded Bold 60px
-- **CTA**: STHeiti Medium 54px
-- **Button**: STHeiti Medium 42px
-- **Emoji**: Rendered natively by browser (108px) — perfect color
+**Font choices for covers** (user-approved minimums — never go smaller):
+- **Title**: Comic Sans MS Bold ≥112px (playful, matches anime theme)
+- **Subtitle**: Arial Rounded Bold ≥60px
+- **CTA**: STHeiti Medium ≥54px
+- **Button**: STHeiti Medium ≥42px
+- **Emoji**: Rendered natively by browser ≥108px — perfect color
 - **Reliable in sandbox**: `STHeiti Medium.ttc`, `Comic Sans MS Bold.ttf`, `Arial Rounded Bold.ttf`
 - **Avoid**: `PingFang.ttc` — may fail with `OSError` in sandbox
+- **⚠️ User explicitly rejected fonts below these sizes as "too small" — always use these minimums.**
 
 **Xiaohongshu-style cover design (v2)**:
 - Real photo backgrounds with gradient overlay (top/bottom dark, center transparent)
@@ -292,5 +332,7 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | Form inputs not found after upload | The publish form (title/content) only renders AFTER an image is uploaded |
 | Playwright click fails on tabs | Use `page.evaluate()` JS click instead — tabs may be outside viewport |
 | Analytics shows no data | Data updates hourly; wait after publishing |
-| JS syntax error in `page.evaluate` | Python triple-quoted strings: use `\\n` not `\n`, `\\d` not `\d` in JS code. See `references/playwright-environment.md` |
-| `
+| JS syntax error in `page.evaluate` | Python triple-quoted strings: use `\\\\n` not `\\n`, `\\\\d` not `\\d` in JS code. See `references/playwright-environment.md` |
+| `OSError: invalid pixel size` with emoji font | Pillow cannot render Apple Color Emoji. Use Playwright HTML rendering or CDN PNG approach. See `references/session-learnings-2026-05-18.md` |
+| Cover emoji shows as blank/boxes | Same root cause — Pillow's FreeType driver cannot handle bitmap-based color emoji fonts. Switch to Playwright HTML rendering. |
+| Cover fonts too small on mobile | Minimum sizes: Title ≥112px, Subtitle ≥60px, CTA ≥54px, Button ≥42px. User explicitly rejected smaller sizes. |
