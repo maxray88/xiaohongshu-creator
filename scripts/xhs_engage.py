@@ -79,7 +79,7 @@ def search_posts_cdp(page, keyword, limit=10):
         page.evaluate("window.scrollBy(0, 800)")
         time.sleep(2)
 
-    # Extract note links - use .note-item (section) rect, not <a> (zero-size)
+    # Extract note links - use offsetWidth/offsetHeight (getBoundingClientRect returns nan)
     notes = page.evaluate("""() => {
         const results = [];
         const items = document.querySelectorAll('.note-item');
@@ -90,11 +90,13 @@ def search_posts_cdp(page, keyword, limit=10):
             seen.add(link.href);
             const title = item.querySelector('[class*="title"], [class*="desc"]');
             const rect = item.getBoundingClientRect();
-            if (rect.width > 0 && rect.height > 50) {
+            const w = item.offsetWidth || 203;
+            const h = item.offsetHeight || 300;
+            if (w > 0 && h > 50) {
                 results.push({
                     href: link.href,
                     title: title ? title.innerText.trim().substring(0, 60) : '',
-                    rect: {x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height)},
+                    rect: {x: Math.round(rect.x + w/2), y: Math.round(rect.y + h/2), w, h},
                 });
             }
         });
@@ -105,10 +107,51 @@ def search_posts_cdp(page, keyword, limit=10):
     return notes[:limit]
 
 
+# ─── CDP: Navigate to a note page ──────────────────────────────────────────────
+
+def navigate_to_note(page, note):
+    """
+    Navigate to a note page by clicking the note card.
+    Uses page.mouse.click() with offsetWidth/offsetHeight-based coordinates.
+    Falls back to page.click() on .note-item selector.
+    """
+    href = note["href"]
+
+    # Strategy 1: page.mouse.click() at the center of the note card
+    cx = note["rect"]["x"]
+    cy = note["rect"]["y"]
+    try:
+        page.mouse.click(cx, cy)
+        time.sleep(6)
+        if "explore/" in page.url and "404" not in page.url:
+            print(f"  Navigated via mouse.click: {page.url[:80]}")
+            return True
+    except Exception as e:
+        print(f"  mouse.click failed: {e}")
+
+    # Strategy 2: page.click on nth note-item
+    try:
+        page.click(f".note-item >> nth=0", timeout=5000)
+        time.sleep(5)
+        if "explore/" in page.url and "404" not in page.url:
+            print(f"  Navigated via page.click: {page.url[:80]}")
+            return True
+    except Exception as e:
+        print(f"  page.click failed: {e}")
+
+    return False
+
+
 # ─── CDP: Like a post ─────────────────────────────────────────────────────────
 
 def like_post_cdp(page):
     """Click the like button on the current note page."""
+    # Wait for like button to be available
+    try:
+        page.wait_for_selector('.like-wrapper', timeout=10000)
+    except Exception:
+        print("  WARNING: .like-wrapper not found after 10s, trying anyway")
+
     result = page.evaluate("""() => {
         const el = document.querySelector('.like-wrapper');
         if (el) { el.click(); return 'clicked .like-wrapper'; }
@@ -126,6 +169,12 @@ def like_post_cdp(page):
 
 def comment_post_cdp(page, message):
     """Type and send a comment on the current note page."""
+    # Wait for comment input to be available (page may still be loading)
+    try:
+        page.wait_for_selector('#content-textarea', timeout=10000)
+    except Exception:
+        print("  WARNING: #content-textarea not found after 10s, trying anyway")
+
     try:
         page.click('#content-textarea', force=True, timeout=5000)
     except Exception:
@@ -206,21 +255,17 @@ def auto_engage_cdp(keyword, max_likes, max_comments, cdp_url, niche="default"):
             title = note.get("title", "")[:40]
             print(f"\nPost: {title}")
 
-            # Click note card to open it
-            cx = note["rect"]["x"] + note["rect"]["w"] // 2
-            cy = note["rect"]["y"] + note["rect"]["h"] // 2
-            page.mouse.click(cx, cy)
-            time.sleep(6)
+            # Navigate to note using multi-strategy approach
+            success = navigate_to_note(page, note)
 
-            if "explore/" not in page.url:
-                print(f"  WARNING: Not on note page: {page.url}")
-                page.mouse.click(cx, cy)
-                time.sleep(5)
-
-            if "explore/" not in page.url:
-                print("  SKIPPING: Could not open note")
-                page.go_back()
-                time.sleep(3)
+            if not success:
+                print("  SKIPPING: Could not navigate to note")
+                # Go back to search results
+                try:
+                    page.goto(f"https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes", wait_until="commit", timeout=30000)
+                    time.sleep(5)
+                except:
+                    pass
                 continue
 
             print(f"  URL: {page.url[:80]}")
@@ -242,8 +287,12 @@ def auto_engage_cdp(keyword, max_likes, max_comments, cdp_url, niche="default"):
             print(f"  Waiting {delay:.1f}s...")
             time.sleep(delay)
 
-            page.go_back()
-            time.sleep(3)
+            # Go back to search results for next note
+            try:
+                page.goto(f"https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes", wait_until="commit", timeout=30000)
+                time.sleep(5)
+            except:
+                pass
 
         page.close()
         browser.close()
