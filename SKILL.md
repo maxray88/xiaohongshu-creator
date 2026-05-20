@@ -49,6 +49,7 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
     ├── session-learnings-2026-05-18.md   # Session learnings (2026-05-18) — emoji rendering, base64 bg, content pipeline
     ├── session-learnings-2026-05-18-p2.md # Session learnings (2026-05-18 P2) — analytics column order, prompt escaping
     ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — CDP comment posting, auto-engage like+comment
+    ├── session-learnings-2026-05-20.md   # Session learnings (2026-05-20) — cover font sizes, key points on cover, navigation fixes
     └── github-workflow.md                # GitHub upload workflow
 ```
 
@@ -192,20 +193,25 @@ See `references/image-acquisition-and-composition.md` for the full workflow.
 **⚠️ Pillow emoji limitation**: `ImageFont.truetype("Apple Color Emoji.ttc", size)` throws `OSError: invalid pixel size`. Pillow cannot render color emoji fonts. Use Playwright HTML rendering or emoji CDN PNGs instead.
 
 **Font choices for covers** (user-approved minimums — never go smaller):
-- **Title**: Comic Sans MS Bold ≥112px (playful, matches anime theme)
-- **Subtitle**: Arial Rounded Bold ≥60px
-- **CTA**: STHeiti Medium ≥54px
-- **Button**: STHeiti Medium ≥42px
-- **Emoji**: Rendered natively by browser ≥108px — perfect color
+- **Title**: Comic Sans MS Bold **≥130px** with accent-color stroke + glow shadow (user explicitly requested larger, more eye-catching titles)
+- **Subtitle**: Arial Rounded Bold **≥68px** with glow shadow
+- **Key points**: **≥44px** with gradient circle badges (52px diameter)
+- **CTA text**: **≥54px** with glow shadow
+- **CTA button**: **≥42px** with gradient background + glow shadow
+- **Emoji**: Rendered natively by browser **≥110px** — perfect color
+- **Accent bars**: **22px** top and bottom edges
 - **Reliable in sandbox**: `STHeiti Medium.ttc`, `Comic Sans MS Bold.ttf`, `Arial Rounded Bold.ttf`
 - **Avoid**: `PingFang.ttc` — may fail with `OSError` in sandbox
 - **⚠️ User explicitly rejected fonts below these sizes as "too small" — always use these minimums.**
 
-**Xiaohongshu-style cover design (v2)**:
+**Cover key points feature**: The cover template supports displaying numbered key points from the body text (e.g., "燕麦碗·5分钟搞定", "鸡蛋三明治·蛋白质满满"). Pass `--key-points` to `xhs_image_pipeline.py` or include in the design dict. Max 5 points, rendered as gradient circle badges + white text with glow shadow.
+
+**Xiaohongshu-style cover design (v3 — current)**:
 - Real photo backgrounds with gradient overlay (top/bottom dark, center transparent)
-- Accent color lines (16-18px) at top and bottom edges
-- Top title area: ~380px with gradient overlay
-- Bottom CTA area: ~280px with pill-shaped button
+- Accent color lines (22px) at top and bottom edges
+- Top title area: large bold title (130px) with accent stroke + multi-layer glow
+- Center key points area: numbered list with gradient circle badges
+- Bottom CTA area: pill-shaped gradient button with glow shadow
 - CTA asks personal question (not yes/no) to encourage comments
 - 1080×1440 (3:4 portrait)
 
@@ -229,14 +235,16 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
 The publish script (v10) will:
 1. **Resolve CDP WebSocket URL** — from file or manual `/json/version` endpoint
 2. **Clear SPA state** — navigate via home page first to avoid stale Vue state
-3. **Detect & switch to image tab** — Bezier-curve human-like click on "上传图文" tab
-4. **Upload images** — via file input (triggers form to render)
-5. **Fill title** — JS nativeSetter (primary) → keyboard typing (fallback)
-6. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
-7. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
-8. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
-9. **Verify result** — checks URL + page text for 发布成功/审核/草稿
-10. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
+3. **Double-navigate to publish URL** — goto `PUBLISH_URL` twice to force SPA re-render (fixes stale success page from previous publish)
+4. **Use `domcontentloaded` not `commit`** — `wait_until="commit"` times out on XHS; `domcontentloaded` is more reliable. Wrap in try/except to handle timeouts gracefully.
+5. **Detect & switch to image tab** — Bezier-curve human-like click on "上传图文" tab
+6. **Upload images** — via file input with `wait_for(state="attached")` before setting files (triggers form to render)
+7. **Fill title** — JS nativeSetter (primary) → keyboard typing (fallback)
+8. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
+9. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
+10. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
+11. **Verify result** — checks URL + page text for 发布成功/审核/草稿
+12. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
 
 > ✅ **Fully Automatic Publishing** (since 2026-05-17): The `xhs-publish-btn` Custom Element's `_onPublish()` method is called directly via JS, bypassing `event.isTrusted`. No manual click required.
 
@@ -455,3 +463,7 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | page.goto() to /explore/ URL returns 404 | Direct navigation to `www.xiaohongshu.com/explore/<id>` always returns 404 (error_code=300031). Must navigate via `page.mouse.click()` on note card from search/profile page. See `references/session-learnings-2026-05-19.md`. |
 | `arguments` not defined in page.evaluate | Python Playwright `page.evaluate("expr")` does NOT support `arguments[0]` syntax. Use `page.evaluate("expr", arg)` second parameter instead. See `references/session-learnings-2026-05-19.md`. |
 | `#content-textarea` null after navigation | Note page still loading after SPA navigation. Always use `page.wait_for_selector('#content-textarea', timeout=10000)` before interacting. See `references/session-learnings-2026-05-19.md`. |
+| `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
+| SPA stuck on success page after publish | Navigate to publish URL **twice** to force re-render. First goto may land on stale success page. |
+| `xhs_auto_publish.py` cover queries don't match topic | Known issue: `--topic` flows to content generation but cover image search queries may still use hardcoded values. Manually verify cover relevance or use `xhs_image_pipeline.py` directly with correct `--query`. |
+| Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |

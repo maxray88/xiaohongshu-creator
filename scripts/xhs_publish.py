@@ -115,7 +115,7 @@ async def human_click(page, x, y):
 
 # ─── Main Publish Flow ────────────────────────────────────────────────────────
 
-async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint: str = CDP_ENDPOINT):
+async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint: str = CDP_ENDPOINT, draft_only: bool = False):
     from playwright.async_api import async_playwright
 
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
@@ -342,6 +342,21 @@ async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint
         print(f"  Submit disabled: {form_state['btnSubmitDisabled']}")
         print(f"  URL: {form_state['url']}")
 
+        # ── Step 6.5: Draft-only mode — save and exit ───────────────
+        if draft_only:
+            print("\n📝 DRAFT MODE: Saving as draft (skipping publish)...")
+            # The form is already filled; just wait a moment for auto-save
+            await human_delay(3, 5)
+            draft_url = page.url
+            print(f"  📝 Draft saved at: {draft_url}")
+            await page.screenshot(path=f"{SCREENSHOT_DIR}/06_draft_saved.png")
+            print(f"  📸 Screenshot: {SCREENSHOT_DIR}/06_draft_saved.png")
+            print(f"\n✅ DRAFT SAVED — Form filled, NOT published.")
+            print(f"   Title: '{title}'")
+            print(f"   Content: {len(content)} chars")
+            print(f"   Images: {len(image_paths)} file(s)")
+            return
+
         # ── Step 7: Hide overlays ──────────────────────────────────────────
         print("\n🧹 Step 7: Hiding overlays that may block the publish button...")
         await page.evaluate("""
@@ -443,6 +458,7 @@ Examples:
     parser.add_argument("--title", required=True, help="Note title (max 20 chars)")
     parser.add_argument("--content", required=True, help="Note content")
     parser.add_argument("--cdp", default=CDP_ENDPOINT, help="CDP endpoint URL (default: http://127.0.0.1:9222)")
+    parser.add_argument("--draft-only", action="store_true", help="Only fill form and save as draft, do NOT publish")
     args = parser.parse_args()
 
-    asyncio.run(publish(args.images, args.title, args.content, args.cdp))
+    asyncio.run(publish(args.images, args.title, args.content, args.cdp, args.draft_only))

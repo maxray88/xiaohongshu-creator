@@ -199,10 +199,14 @@ def build_cover_html(d: dict) -> str:
     # Build key points HTML (numbered list from body)
     key_points_html = ""
     key_points = d.get("key_points", [])
+    kp_emojis = d.get("kp_emojis", [])  # Emoji for each key point circle
     if key_points:
         items_html = ""
         for i, point in enumerate(key_points[:5]):  # Max 5 points
-            items_html += f'<li><span class="kp-num">{i+1}</span><span class="kp-text">{point}</span></li>\n'
+            # Use emoji if provided, otherwise fall back to number
+            circle_content = kp_emojis[i] if i < len(kp_emojis) else str(i+1)
+            is_emoji = i < len(kp_emojis)
+            items_html += f'<li><span class="kp-num {"kp-emoji" if is_emoji else ""}">{circle_content}</span><span class="kp-text">{point}</span></li>\n'
         key_points_html = f'<ul class="key-points">{items_html}</ul>'
 
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -245,23 +249,28 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; background:#111; }}
 .sub-emoji {{ font-size:60px; }}
 
 /* ── Key points area ── */
-.key-points-area {{ position:absolute; top:40%; left:0; right:0; padding:0 55px; z-index:5; }}
-.key-points {{ list-style:none; display:flex; flex-direction:column; gap:16px; }}
-.key-points li {{ display:flex; align-items:flex-start; gap:16px; }}
+.key-points-area {{ position:absolute; top:38%; left:0; right:0; padding:0 50px; z-index:5; }}
+.key-points {{ list-style:none; display:flex; flex-direction:column; gap:18px; }}
+.key-points li {{ display:flex; align-items:center; gap:18px; }}
 .kp-num {{
   display:inline-flex; align-items:center; justify-content:center;
-  min-width:52px; height:52px; border-radius:50%;
+  min-width:64px; height:64px; border-radius:50%;
   background:linear-gradient(135deg, {d["accent"]}, {d["accent_light"]});
-  color:#fff; font-size:28px; font-weight:900; flex-shrink:0; margin-top:4px;
-  box-shadow:0 4px 12px rgba(0,0,0,0.4);
-  border:2px solid rgba(255,255,255,0.3);
+  color:#fff; font-size:32px; font-weight:900; flex-shrink:0;
+  box-shadow:0 4px 14px rgba(0,0,0,0.45);
+  border:3px solid rgba(255,255,255,0.35);
 }}
+.kp-emoji {{ font-size:44px; background:none; border:none; box-shadow:none; min-width:64px; height:64px; }}
 .kp-text {{
-  font-size:44px; font-weight:700; color:#fff;
+  font-size:88px; font-weight:800;
+  color:#fff;
+  -webkit-text-stroke: 3px {d["accent"]};
+  paint-order: stroke fill;
   text-shadow:
-    0 0 14px {d["accent"]}66,
-    2px 3px 8px rgba(0,0,0,0.65);
-  line-height:1.45; letter-spacing:0.5px;
+    0 0 20px {d["accent"]}cc,
+    0 0 40px {d["accent"]}66,
+    4px 6px 12px rgba(0,0,0,0.75);
+  line-height:1.35; letter-spacing:1px;
 }}
 
 /* ── CTA area ── */
@@ -420,6 +429,7 @@ async def run_pipeline(args):
             "cta_btn": tmpl["cta_btn"],
             "btn_emoji": tmpl["btn_emoji"],
             "key_points": args.key_points if args.key_points else [],
+            "kp_emojis": args.kp_emojis if args.kp_emojis else [],
         }
 
         # If no bg image, use gradient fallback
@@ -484,7 +494,8 @@ Examples:
     parser.add_argument("--sub-emoji", default="", help="Subtitle emoji (optional)")
     parser.add_argument("--cta", required=True, help="CTA question text")
     parser.add_argument("--cta-emoji", default="", help="CTA emoji (optional)")
-    parser.add_argument("--key-points", nargs="+", default=[], help="Key points to display on cover (e.g., '乐高积木' '泡泡玛特盲盒' '指尖陀螺')")
+    parser.add_argument("--key-points", nargs="+", default=[], help="Key points to display on cover")
+    parser.add_argument("--kp-emojis", nargs="+", default=[], help="Emojis for key point circles (e.g., 🍜 🌶️ 🥟 🍳 🧄)")
     parser.add_argument("--content", default="", help="Post body content (for publish hint)")
     parser.add_argument("--output", default="/tmp/xhs_covers", help="Output directory")
     parser.add_argument("--count", type=int, default=10, help="Number of images to download")
@@ -526,6 +537,8 @@ Examples:
                     "cta_emoji": args.cta_emoji or "",
                     "cta_btn": tmpl["cta_btn"],
                     "btn_emoji": tmpl["btn_emoji"],
+                    "key_points": args.key_points if args.key_points else [],
+                    "kp_emojis": args.kp_emojis if args.kp_emojis else [],
                 }
                 designs.append(d)
             await render_covers(designs, work_dir)
