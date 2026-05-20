@@ -161,12 +161,29 @@ async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint
 
         # ── Step 1: Navigate via home to clear SPA state ──────────────────
         print("\n📄 Step 1: Navigating via home page to clear SPA state...")
-        await page.goto("https://creator.xiaohongshu.com/new/home",
-                       wait_until="commit", timeout=60000)
-        await human_delay(3, 5)
-        await page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+        try:
+            await page.goto("https://creator.xiaohongshu.com/new/home",
+                           wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            print("  ⚠️  Home page load timeout, continuing...")
+        await human_delay(2, 3)
+        try:
+            await page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
+        except Exception:
+            pass
         await human_delay(1, 2)
-        await page.goto(PUBLISH_URL, wait_until="commit", timeout=60000)
+        # Navigate to publish URL (twice to force SPA re-render)
+        try:
+            await page.goto(PUBLISH_URL, wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            print("  ⚠️  Publish URL first load timeout, retrying...")
+            await human_delay(3, 5)
+            await page.goto(PUBLISH_URL, wait_until="commit", timeout=30000)
+        await human_delay(3, 5)
+        try:
+            await page.goto(PUBLISH_URL, wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            print("  ⚠️  Publish URL second load timeout, continuing...")
         print("⏳ Waiting 12s for SPA render...")
         await human_delay(10, 14)
         await page.screenshot(path=f"{SCREENSHOT_DIR}/01_loaded.png")
@@ -210,7 +227,13 @@ async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint
 
         # ── Step 3: Upload images ──────────────────────────────────────────
         print(f"\n🖼️  Step 3: Uploading {len(image_paths)} image(s)...")
+        # Wait for file input to appear (SPA may need extra time after double nav)
         file_input = page.locator('input[type="file"]').first
+        try:
+            await file_input.wait_for(state="attached", timeout=15000)
+        except Exception:
+            print("  ⚠️  File input not attached yet, waiting 10 more seconds...")
+            await human_delay(8, 12)
         await file_input.set_input_files(image_paths)
         print(f"  ✅ File input set")
         print("  ⏳ Waiting 20s for upload to complete and form to render...")

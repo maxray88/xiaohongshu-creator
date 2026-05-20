@@ -215,43 +215,74 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; background:#111; }}
   background-size:cover; background-position:center 20%; }}
 .overlay {{ position:absolute; inset:0;
   background:linear-gradient(to bottom,
-    {d["accent"]}ee 0%, {d["accent"]}66 15%, transparent 35%,
-    transparent 55%, {d["accent"]}45 75%, {d["accent"]}ee 100%); }}
-.accent-top {{ position:absolute; top:0; left:0; right:0; height:18px; background:{d["accent"]}; z-index:10; }}
-.accent-bot {{ position:absolute; bottom:0; left:0; right:0; height:18px; background:{d["accent"]}; z-index:10; }}
+    {d["accent"]}ee 0%, {d["accent"]}88 18%, transparent 38%,
+    transparent 55%, {d["accent"]}55 78%, {d["accent"]}ee 100%); }}
+.accent-top {{ position:absolute; top:0; left:0; right:0; height:22px; background:{d["accent"]}; z-index:10; }}
+.accent-bot {{ position:absolute; bottom:0; left:0; right:0; height:22px; background:{d["accent"]}; z-index:10; }}
 
-/* Title area */
-.title-area {{ position:absolute; top:0; left:0; right:0; padding:80px 50px 15px; text-align:center; z-index:5; }}
-.title-row {{ display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:8px; }}
-.title-text {{ font-size:100px; font-weight:900; color:#fff;
-  text-shadow:4px 6px 14px rgba(0,0,0,0.65); letter-spacing:2px; line-height:1.15; }}
-.title-emoji {{ font-size:96px; filter:drop-shadow(3px 4px 8px rgba(0,0,0,0.5)); }}
-.subtitle-row {{ display:flex; align-items:center; justify-content:center; gap:8px; }}
-.subtitle-text {{ font-size:52px; font-weight:700; color:{d["accent_light"]};
-  text-shadow:2px 3px 8px rgba(0,0,0,0.55); }}
-.sub-emoji {{ font-size:48px; }}
+/* ── Title area ── */
+.title-area {{ position:absolute; top:0; left:0; right:0; padding:70px 40px 10px; text-align:center; z-index:5; }}
+.title-row {{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:10px; flex-wrap:wrap; }}
+.title-text {{
+  font-size:130px; font-weight:900; color:#fff;
+  letter-spacing:3px; line-height:1.1;
+  -webkit-text-stroke: 4px {d["accent"]};
+  paint-order: stroke fill;
+  text-shadow:
+    0 0 30px {d["accent"]}cc,
+    0 0 60px {d["accent"]}66,
+    5px 8px 18px rgba(0,0,0,0.7);
+}}
+.title-emoji {{ font-size:110px; filter:drop-shadow(4px 6px 12px rgba(0,0,0,0.55)); }}
+.subtitle-row {{ display:flex; align-items:center; justify-content:center; gap:10px; }}
+.subtitle-text {{
+  font-size:68px; font-weight:800; color:{d["accent_light"]};
+  text-shadow:
+    0 0 20px {d["accent"]}88,
+    3px 4px 10px rgba(0,0,0,0.6);
+  letter-spacing:1px;
+}}
+.sub-emoji {{ font-size:60px; }}
 
-/* Key points area (center of cover) */
-.key-points-area {{ position:absolute; top:38%; left:0; right:0; padding:0 60px; z-index:5; }}
-.key-points {{ list-style:none; display:flex; flex-direction:column; gap:14px; }}
-.key-points li {{ display:flex; align-items:flex-start; gap:14px; }}
-.kp-num {{ display:inline-flex; align-items:center; justify-content:center;
-  min-width:42px; height:42px; border-radius:50%; background:{d["accent"]};
-  color:#fff; font-size:24px; font-weight:800; flex-shrink:0; margin-top:2px; }}
-.kp-text {{ font-size:36px; font-weight:600; color:#fff;
-  text-shadow:2px 3px 6px rgba(0,0,0,0.6); line-height:1.4; }}
+/* ── Key points area ── */
+.key-points-area {{ position:absolute; top:40%; left:0; right:0; padding:0 55px; z-index:5; }}
+.key-points {{ list-style:none; display:flex; flex-direction:column; gap:16px; }}
+.key-points li {{ display:flex; align-items:flex-start; gap:16px; }}
+.kp-num {{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:52px; height:52px; border-radius:50%;
+  background:linear-gradient(135deg, {d["accent"]}, {d["accent_light"]});
+  color:#fff; font-size:28px; font-weight:900; flex-shrink:0; margin-top:4px;
+  box-shadow:0 4px 12px rgba(0,0,0,0.4);
+  border:2px solid rgba(255,255,255,0.3);
+}}
+.kp-text {{
+  font-size:44px; font-weight:700; color:#fff;
+  text-shadow:
+    0 0 14px {d["accent"]}66,
+    2px 3px 8px rgba(0,0,0,0.65);
+  line-height:1.45; letter-spacing:0.5px;
+}}
 
-/* CTA area */
-.cta-area {{ position:absolute; bottom:0; left:0; right:0; padding:15px 50px 45px; text-align:center; z-index:5; }}
-.cta-row {{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:20px; }}
-.cta-text {{ font-size:48px; font-weight:800; color:#fff;
-  text-shadow:3px 4px 10px rgba(0,0,0,0.65); }}
-.cta-emoji {{ font-size:46px; }}
-.cta-btn {{ display:inline-flex; align-items:center; gap:12px;
-  padding:20px 60px; border-radius:60px; background:{d["accent"]};
-  font-size:38px; font-weight:800; color:#fff;
-  box-shadow:0 8px 24px rgba(0,0,0,0.45); }}
-.btn-emoji {{ font-size:36px; }}
+/* ── CTA area ── */
+.cta-area {{ position:absolute; bottom:0; left:0; right:0; padding:12px 50px 42px; text-align:center; z-index:5; }}
+.cta-row {{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:22px; }}
+.cta-text {{
+  font-size:54px; font-weight:900; color:#fff;
+  text-shadow:
+    0 0 18px {d["accent"]}88,
+    3px 5px 12px rgba(0,0,0,0.7);
+}}
+.cta-emoji {{ font-size:50px; }}
+.cta-btn {{
+  display:inline-flex; align-items:center; gap:14px;
+  padding:22px 68px; border-radius:60px;
+  background:linear-gradient(135deg, {d["accent"]}, {d["accent_light"]});
+  font-size:42px; font-weight:900; color:#fff;
+  box-shadow:0 10px 30px rgba(0,0,0,0.5), 0 0 20px {d["accent"]}44;
+  border:2px solid rgba(255,255,255,0.25);
+}}
+.btn-emoji {{ font-size:40px; }}
 </style></head><body>
 <div class="cover">
   <div class="bg"></div>

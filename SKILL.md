@@ -28,8 +28,8 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── xhs_login.py                      # Login: open Chrome, save cookies
 │   ├── xhs_analytics.py                  # Analytics: account & post metrics
 │   ├── xhs_hashtags.py                   # Hashtag research & trending topics
-│   ├── xhs_comments.py                   # Comment management
-│   ├── xhs_engage.py                     # Engagement automation
+│   ├── xhs_comments.py                   # Comment management (list/reply/post via CDP)
+│   ├── xhs_engage.py                     # Engagement automation (auto-engage like+comment via CDP)
 │   └── render_covers.py                  # Cover image renderer (Playwright + HTML, standalone)
 ├── templates/
 │   └── xhs_content_prompt_template.md  # LLM prompt template for content generation (editable)
@@ -48,7 +48,7 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
     ├── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough
     ├── session-learnings-2026-05-18.md   # Session learnings (2026-05-18) — emoji rendering, base64 bg, content pipeline
     ├── session-learnings-2026-05-18-p2.md # Session learnings (2026-05-18 P2) — analytics column order, prompt escaping
-    ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — posting comments on www via CDP, xhs_engage browse fix needed
+    ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — CDP comment posting, auto-engage like+comment
     └── github-workflow.md                # GitHub upload workflow
 ```
 
@@ -303,10 +303,10 @@ $PYTHON xhs_hashtags.py --output json
 
 ### Comment Management
 
-Monitor and manage comments on your posts:
+Monitor, manage, and post comments:
 
 ```bash
-# List all notes with comment counts
+# List all notes with comment counts (creator platform)
 $PYTHON xhs_comments.py --action list
 
 # Filter by note title
@@ -314,37 +314,23 @@ $PYTHON xhs_comments.py --action list --note-title "蜡笔小新"
 
 # Batch reply (lists notes with comments)
 $PYTHON xhs_comments.py --action batch-reply --message "感谢支持！💕"
+
+# Post a comment on www.xiaohongshu.com via CDP (by note URL)
+$PYTHON xhs_comments.py --action post --note-url "https://www.xiaohongshu.com/explore/xxx" --message "太棒了！"
+
+# Post a comment on www.xiaohongshu.com via CDP (by profile + note index)
+$PYTHON xhs_comments.py --action post --profile "https://www.xiaohongshu.com/user/profile/<id>" --note-index 0 --message "太棒了！"
 ```
 
-#### Posting Comments on www.xiaohongshu.com (via CDP)
+**Actions:**
+- `list` — List all notes with comment counts (creator platform)
+- `reply` — Reply to a specific comment (creator platform)
+- `batch-reply` — Reply to all unread comments with the same message (creator platform)
+- `mark-read` — Mark all comments as read (creator platform)
+- `post` — Post a new comment on `www.xiaohongshu.com` via CDP (logged-in Chrome)
 
-The `xhs_comments.py` script only reads data from the creator platform. To **post comments on the main XHS site** (`www.xiaohongshu.com`), use the CDP approach directly:
-
-```python
-# Connect to logged-in Chrome via CDP
-browser = p.chromium.connect_over_cdp('http://127.0.0.1:9222')
-context = browser.contexts[0]
-page = context.new_page()
-
-# Navigate to user profile (SPA routing required — direct /explore/ URLs return 404)
-page.goto('https://www.xiaohongshu.com/user/profile/<user_id>')
-time.sleep(8)
-
-# Click note card to open it (SPA overlay, URL stays as /explore/<note_id>)
-page.mouse.click(cx, cy)  # center of note card rect
-time.sleep(5)
-
-# Activate comment input (bypass not-active overlay)
-page.click('#content-textarea', force=True)
-time.sleep(1)
-
-# Type and send
-page.keyboard.type("评论内容", delay=80)
-page.click('button.btn.submit', force=True)
-```
-
-**Key pitfalls:**
-- **Direct `/explore/<id>` URLs return 404** (error_code=300031 "当前笔记暂时无法浏览"). Must navigate via profile page click.
+**Key pitfalls for `post` action:**
+- **Direct `/explore/<id>` URLs return 404** (error_code=300031). Must navigate via profile page click.
 - **Comment input has `not-active` overlay** — use `force=True` or JS `el.click()` to bypass.
 - **Send button**: `button.btn.submit` or `button:has-text("发送")`.
 - **Verify**: Check page text for comment content after sending.
@@ -353,24 +339,57 @@ page.click('button.btn.submit', force=True)
 
 ### Engagement Automation
 
-Automate engagement activities to grow your account:
+Automate liking and commenting on hot posts to grow your account:
 
 ```bash
-# Browse trending topics
-$PYTHON xhs_engage.py --action browse --category 知识 --limit 15
+# Auto-engage: search keyword → like + comment on hot posts (via CDP)
+$PYTHON xhs_engage.py --action auto-engage --keyword "蜡笔小新" --likes 3 --comments 2
 
-# Auto-engage with trending posts
-$PYTHON xhs_engage.py --action auto-engage --category 知识 --likes 5 --comments 3
+# With niche-specific comment templates
+$PYTHON xhs_engage.py --action auto-engage --keyword "蜡笔小新" --likes 3 --comments 2 --niche anime
+
+# Like a specific post (via CDP)
+$PYTHON xhs_engage.py --action like --note-url "https://www.xiaohongshu.com/explore/xxx"
+
+# Comment on a specific post (via CDP)
+$PYTHON xhs_engage.py --action comment --note-url "https://www.xiaohongshu.com/explore/xxx" --message "太棒了！"
+
+# Browse trending topics (creator platform, text-based parsing)
+$PYTHON xhs_engage.py --action browse --category 知识 --limit 15
 
 # View engagement history
 $PYTHON xhs_engage.py --action history
 ```
 
-> ⚠️ **Rate Limits**: Max 10 likes/hour, 5 comments/hour. The script enforces these limits automatically.
+**How auto-engage works:**
+1. Searches `www.xiaohongshu.com` for the keyword
+2. Extracts visible note card positions using `offsetWidth`/`offsetHeight` (NOT `getBoundingClientRect()` which returns `nan`)
+3. Clicks each note card via `page.mouse.click(cx, cy)` at card center (NOT `page.goto()` which returns 404)
+4. Waits for `.like-wrapper` and `#content-textarea` via `wait_for_selector()` before interacting
+5. Likes the post (`.like-wrapper` selector)
+6. Types and sends a comment (`#content-textarea` + `button.btn.submit`)
+7. Goes back to search results, repeats
 
-> ⚠️ **Warning**: Use auto-engage responsibly. Excessive automation may trigger bot detection. The creator platform is primarily for publishing and analytics — full engagement features require the main XHS app.
+**Niche comment templates** (`--niche`):
+- `default` — Generic positive comments
+- `anime` — Anime/fandom specific
+- `food`, `beauty`, `fashion`, `travel` — Domain-specific
 
-> ⚠️ **Known issue**: `xhs_engage.py --action browse` currently returns empty results because the inspiration page is a SPA and the text-based parser doesn't match rendered content. Needs DOM-based parsing fix. Use `xhs_hashtags.py` for trending topic research instead.
+> ⚠️ **Rate Limits**: Max 10 likes/hour, 5 comments/hour. Enforced automatically via `~/.xiaohongshu-creator/engagement_history.json`.
+
+> ⚠️ **Use responsibly**: Excessive automation may trigger bot detection. Random delays (3-8s) between actions help avoid detection.
+
+> ⚠️ **`--action browse` limitation**: Returns empty results because the creator platform inspiration page is a SPA. Use `xhs_hashtags.py` for trending topic research instead.
+
+**Key technical details:**
+- Note cards: `<section class="note-item">` — use `offsetWidth`/`offsetHeight` for dimensions (**NOT** `getBoundingClientRect()` which returns `nan`)
+- Navigation: `page.mouse.click(cx, cy)` at card center — **NOT** `page.goto()` (returns 404 for direct `/explore/` URLs)
+- Like button: `.like-wrapper` — always `wait_for_selector('.like-wrapper', timeout=10000)` before clicking
+- Comment input: `#content-textarea` — always `wait_for_selector('#content-textarea', timeout=10000)` before `force=True` click
+- Send button: `button.btn.submit`
+- Python Playwright: `page.evaluate("expr", arg)` does NOT support `arguments[0]` syntax — use the second parameter
+- `page.go_back()` to return to search results after engaging with a note
+- **Always use `wait_for_selector()`** before interacting with note page elements — SPA navigation means the page may not be fully loaded even after URL changes
 
 ## GitHub Repository
 
@@ -426,7 +445,13 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | Cover emoji shows as blank/boxes | Same root cause — Pillow's FreeType driver cannot handle bitmap-based color emoji fonts. Switch to Playwright HTML rendering. |
 | Content generator outputs `__AGENT_PROCESS__` and stops | Expected behavior — the script cannot call LLM from subprocess. Agent must: (1) read prompt from `/tmp/xhs_content_prompt.txt`, (2) generate JSON via LLM, (3) save to `post_data.json`, (4) re-run with `--from-json`. See `references/session-learnings-2026-05-18-p2.md`. |
 | Analytics likes/comments data swapped | **Platform column order: 曝光, 评论, 点赞, 收藏, 分享** (NOT 点赞 before 评论). Check `parse_note_data()` in xhs_analytics.py. See `references/session-learnings-2026-05-18-p2.md`. |
-| `KeyError: '\\\\n  "titles"'` when running content generator | Prompt template JSON examples use single `{}` instead of escaped `{{}}`. Fix: ensure `templates/xhs_content_prompt_template.md` uses `{{}}` for all JSON example braces. See `references/session-learnings-2026-05-18-p2.md`. |
+| `KeyError: '\\n  "titles"'` when running content generator | Prompt template JSON examples use single `{}` instead of escaped `{{}}`. Fix: ensure `templates/xhs_content_prompt_template.md` uses `{{}}` for all JSON example braces. See `references/session-learnings-2026-05-18-p2.md`. |
 | Comment input not clickable on www.xiaohongshu.com | The `#content-textarea` has a `not-active` overlay. Use `force=True`: `page.click('#content-textarea', force=True)` or JS `el.click()`. See `references/session-learnings-2026-05-19.md`. |
 | Direct /explore/ URL returns 404 on www.xiaohongshu.com | error_code=300031 "当前笔记暂时无法浏览". Must navigate via profile page click (SPA routing), not direct URL. See `references/session-learnings-2026-05-19.md`. |
 | xhs_engage.py browse returns empty | Inspiration page SPA doesn't render parseable text. Use `xhs_hashtags.py` instead for trending topics. Needs DOM-based parsing fix. |
+| Note card click doesn't navigate to note | `.note-item <a>` has zero-size rect (display:contents). Use `<section>` element rect for clicking. See `references/session-learnings-2026-05-19.md`. |
+| `el.click is not a function` in page.evaluate | Element matched is not an HTMLElement (may be Vue component root). Use `document.querySelector()` with more specific selector, or use `page.locator()` + `page.click()` instead. |
+| Note card getBoundingClientRect returns nan | XHS search page `.note-item` elements return `nan` for `getBoundingClientRect()`. Use `item.offsetWidth`/`item.offsetHeight` instead. See `references/session-learnings-2026-05-19.md`. |
+| page.goto() to /explore/ URL returns 404 | Direct navigation to `www.xiaohongshu.com/explore/<id>` always returns 404 (error_code=300031). Must navigate via `page.mouse.click()` on note card from search/profile page. See `references/session-learnings-2026-05-19.md`. |
+| `arguments` not defined in page.evaluate | Python Playwright `page.evaluate("expr")` does NOT support `arguments[0]` syntax. Use `page.evaluate("expr", arg)` second parameter instead. See `references/session-learnings-2026-05-19.md`. |
+| `#content-textarea` null after navigation | Note page still loading after SPA navigation. Always use `page.wait_for_selector('#content-textarea', timeout=10000)` before interacting. See `references/session-learnings-2026-05-19.md`. |
