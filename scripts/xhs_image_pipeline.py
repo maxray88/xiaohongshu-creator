@@ -191,10 +191,19 @@ def img_to_base64(path: str) -> str:
 
 
 def build_cover_html(d: dict) -> str:
-    """Build HTML for a single cover design."""
+    """Build HTML for a single cover design. Includes key points from body text."""
     sub_emj_html = f'<span class="sub-emoji">{d.get("sub_emoji","")}</span>' if d.get("sub_emoji") else ""
     cta_emj_html = f'<span class="cta-emoji">{d.get("cta_emoji","")}</span>' if d.get("cta_emoji") else ""
     btn_emj_html = f'<span class="btn-emoji">{d.get("btn_emoji","")}</span>' if d.get("btn_emoji") else ""
+
+    # Build key points HTML (numbered list from body)
+    key_points_html = ""
+    key_points = d.get("key_points", [])
+    if key_points:
+        items_html = ""
+        for i, point in enumerate(key_points[:5]):  # Max 5 points
+            items_html += f'<li><span class="kp-num">{i+1}</span><span class="kp-text">{point}</span></li>\n'
+        key_points_html = f'<ul class="key-points">{items_html}</ul>'
 
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
@@ -206,29 +215,43 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; background:#111; }}
   background-size:cover; background-position:center 20%; }}
 .overlay {{ position:absolute; inset:0;
   background:linear-gradient(to bottom,
-    {d["accent"]}ee 0%, {d["accent"]}66 20%, transparent 40%,
-    transparent 60%, {d["accent"]}55 80%, {d["accent"]}ee 100%); }}
+    {d["accent"]}ee 0%, {d["accent"]}66 15%, transparent 35%,
+    transparent 55%, {d["accent"]}45 75%, {d["accent"]}ee 100%); }}
 .accent-top {{ position:absolute; top:0; left:0; right:0; height:18px; background:{d["accent"]}; z-index:10; }}
 .accent-bot {{ position:absolute; bottom:0; left:0; right:0; height:18px; background:{d["accent"]}; z-index:10; }}
-.title-area {{ position:absolute; top:0; left:0; right:0; padding:100px 50px 20px; text-align:center; z-index:5; }}
-.title-row {{ display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:10px; }}
-.title-text {{ font-size:112px; font-weight:900; color:#fff;
+
+/* Title area */
+.title-area {{ position:absolute; top:0; left:0; right:0; padding:80px 50px 15px; text-align:center; z-index:5; }}
+.title-row {{ display:flex; align-items:center; justify-content:center; gap:16px; margin-bottom:8px; }}
+.title-text {{ font-size:100px; font-weight:900; color:#fff;
   text-shadow:4px 6px 14px rgba(0,0,0,0.65); letter-spacing:2px; line-height:1.15; }}
-.title-emoji {{ font-size:108px; filter:drop-shadow(3px 4px 8px rgba(0,0,0,0.5)); }}
+.title-emoji {{ font-size:96px; filter:drop-shadow(3px 4px 8px rgba(0,0,0,0.5)); }}
 .subtitle-row {{ display:flex; align-items:center; justify-content:center; gap:8px; }}
-.subtitle-text {{ font-size:60px; font-weight:700; color:{d["accent_light"]};
+.subtitle-text {{ font-size:52px; font-weight:700; color:{d["accent_light"]};
   text-shadow:2px 3px 8px rgba(0,0,0,0.55); }}
-.sub-emoji {{ font-size:55px; }}
-.cta-area {{ position:absolute; bottom:0; left:0; right:0; padding:20px 50px 55px; text-align:center; z-index:5; }}
-.cta-row {{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:28px; }}
-.cta-text {{ font-size:54px; font-weight:800; color:#fff;
+.sub-emoji {{ font-size:48px; }}
+
+/* Key points area (center of cover) */
+.key-points-area {{ position:absolute; top:38%; left:0; right:0; padding:0 60px; z-index:5; }}
+.key-points {{ list-style:none; display:flex; flex-direction:column; gap:14px; }}
+.key-points li {{ display:flex; align-items:flex-start; gap:14px; }}
+.kp-num {{ display:inline-flex; align-items:center; justify-content:center;
+  min-width:42px; height:42px; border-radius:50%; background:{d["accent"]};
+  color:#fff; font-size:24px; font-weight:800; flex-shrink:0; margin-top:2px; }}
+.kp-text {{ font-size:36px; font-weight:600; color:#fff;
+  text-shadow:2px 3px 6px rgba(0,0,0,0.6); line-height:1.4; }}
+
+/* CTA area */
+.cta-area {{ position:absolute; bottom:0; left:0; right:0; padding:15px 50px 45px; text-align:center; z-index:5; }}
+.cta-row {{ display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:20px; }}
+.cta-text {{ font-size:48px; font-weight:800; color:#fff;
   text-shadow:3px 4px 10px rgba(0,0,0,0.65); }}
-.cta-emoji {{ font-size:52px; }}
+.cta-emoji {{ font-size:46px; }}
 .cta-btn {{ display:inline-flex; align-items:center; gap:12px;
-  padding:24px 68px; border-radius:60px; background:{d["accent"]};
-  font-size:42px; font-weight:800; color:#fff;
+  padding:20px 60px; border-radius:60px; background:{d["accent"]};
+  font-size:38px; font-weight:800; color:#fff;
   box-shadow:0 8px 24px rgba(0,0,0,0.45); }}
-.btn-emoji {{ font-size:40px; }}
+.btn-emoji {{ font-size:36px; }}
 </style></head><body>
 <div class="cover">
   <div class="bg"></div>
@@ -244,6 +267,9 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; background:#111; }}
       <span class="subtitle-text">{d["subtitle"]}</span>
       {sub_emj_html}
     </div>
+  </div>
+  <div class="key-points-area">
+    {key_points_html}
   </div>
   <div class="cta-area">
     <div class="cta-row">
@@ -362,6 +388,7 @@ async def run_pipeline(args):
             "cta_emoji": args.cta_emoji or "",
             "cta_btn": tmpl["cta_btn"],
             "btn_emoji": tmpl["btn_emoji"],
+            "key_points": args.key_points if args.key_points else [],
         }
 
         # If no bg image, use gradient fallback
@@ -370,7 +397,8 @@ async def run_pipeline(args):
 
         designs.append(d)
         bg_name = os.path.basename(bg) if bg else "gradient"
-        print(f"  Cover {i+1}: bg={bg_name}, accent={tmpl['accent']}")
+        kp_count = len(d["key_points"])
+        print(f"  Cover {i+1}: bg={bg_name}, accent={tmpl['accent']}, key_points={kp_count}")
 
     # ── Step 4: Render ────────────────────────────────────────────────────
     print(f"\n🎬 Step 4: Rendering covers with Playwright...")
@@ -425,6 +453,7 @@ Examples:
     parser.add_argument("--sub-emoji", default="", help="Subtitle emoji (optional)")
     parser.add_argument("--cta", required=True, help="CTA question text")
     parser.add_argument("--cta-emoji", default="", help="CTA emoji (optional)")
+    parser.add_argument("--key-points", nargs="+", default=[], help="Key points to display on cover (e.g., '乐高积木' '泡泡玛特盲盒' '指尖陀螺')")
     parser.add_argument("--content", default="", help="Post body content (for publish hint)")
     parser.add_argument("--output", default="/tmp/xhs_covers", help="Output directory")
     parser.add_argument("--count", type=int, default=10, help="Number of images to download")
