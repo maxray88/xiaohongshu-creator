@@ -227,17 +227,34 @@ async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint
 
         # ── Step 3: Upload images ──────────────────────────────────────────
         print(f"\n🖼️  Step 3: Uploading {len(image_paths)} image(s)...")
-        # Wait for file input to appear (SPA may need extra time after double nav)
         file_input = page.locator('input[type="file"]').first
         try:
             await file_input.wait_for(state="attached", timeout=15000)
         except Exception:
             print("  ⚠️  File input not attached yet, waiting 10 more seconds...")
             await human_delay(8, 12)
-        await file_input.set_input_files(image_paths)
-        print(f"  ✅ File input set")
-        print("  ⏳ Waiting 20s for upload to complete and form to render...")
-        await human_delay(18, 22)
+
+        # Upload all at once (Playwright handles batch)
+        try:
+            await file_input.set_input_files(image_paths)
+            print(f"  ✅ File input set ({len(image_paths)} images at once)")
+        except Exception as e:
+            print(f"  ⚠️  Batch upload failed ({e}), trying one by one...")
+            # Fallback: upload first, wait, then add more
+            await file_input.set_input_files([image_paths[0]])
+            print(f"  ✅ First image uploaded")
+            await human_delay(10, 15)
+            for img_path in image_paths[1:]:
+                try:
+                    await file_input.set_input_files([img_path])
+                    print(f"  ✅ Added: {os.path.basename(img_path)}")
+                    await human_delay(5, 8)
+                except Exception as e2:
+                    print(f"  ⚠️  Failed to add {os.path.basename(img_path)}: {e2}")
+
+        wait_time = 20 + len(image_paths) * 5
+        print(f"  ⏳ Waiting {wait_time}s for upload to complete and form to render...")
+        await human_delay(wait_time - 5, wait_time + 5)
         await page.screenshot(path=f"{SCREENSHOT_DIR}/02_uploaded.png")
 
         # Verify form appeared

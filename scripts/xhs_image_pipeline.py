@@ -191,22 +191,33 @@ def img_to_base64(path: str) -> str:
 
 
 def build_cover_html(d: dict) -> str:
-    """Build HTML for a single cover design. Includes key points from body text."""
+    """Build HTML for a single cover design. Each key point can have an image thumbnail or emoji."""
     sub_emj_html = f'<span class="sub-emoji">{d.get("sub_emoji","")}</span>' if d.get("sub_emoji") else ""
     cta_emj_html = f'<span class="cta-emoji">{d.get("cta_emoji","")}</span>' if d.get("cta_emoji") else ""
     btn_emj_html = f'<span class="btn-emoji">{d.get("btn_emoji","")}</span>' if d.get("btn_emoji") else ""
 
-    # Build key points HTML (numbered list from body)
+    # Build key points HTML — supports image thumbnails, emoji, or number fallback
     key_points_html = ""
     key_points = d.get("key_points", [])
-    kp_emojis = d.get("kp_emojis", [])  # Emoji for each key point circle
+    kp_emojis = d.get("kp_emojis", [])
+    kp_images = d.get("kp_images", [])   # base64 thumbnails for each key point
     if key_points:
         items_html = ""
-        for i, point in enumerate(key_points[:5]):  # Max 5 points
-            # Use emoji if provided, otherwise fall back to number
-            circle_content = kp_emojis[i] if i < len(kp_emojis) else str(i+1)
-            is_emoji = i < len(kp_emojis)
-            items_html += f'<li><span class="kp-num {"kp-emoji" if is_emoji else ""}">{circle_content}</span><span class="kp-text">{point}</span></li>\n'
+        for i, point in enumerate(key_points[:5]):
+            kp_img = kp_images[i] if i < len(kp_images) else None
+            kp_emj = kp_emojis[i] if i < len(kp_emojis) else None
+
+            if kp_img:
+                # Image thumbnail (circle-cropped)
+                circle_html = f'<img src="{kp_img}" class="kp-img" alt="">'
+            elif kp_emj:
+                # Emoji (large)
+                circle_html = f'<span class="kp-emoji">{kp_emj}</span>'
+            else:
+                # Number fallback
+                circle_html = f'<span class="kp-num">{i+1}</span>'
+
+            items_html += f'<li><div class="kp-circle">{circle_html}</div><span class="kp-text">{point}</span></li>\n'
         key_points_html = f'<ul class="key-points">{items_html}</ul>'
 
     return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -249,18 +260,31 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; background:#111; }}
 .sub-emoji {{ font-size:60px; }}
 
 /* ── Key points area ── */
-.key-points-area {{ position:absolute; top:38%; left:0; right:0; padding:0 50px; z-index:5; }}
-.key-points {{ list-style:none; display:flex; flex-direction:column; gap:18px; }}
-.key-points li {{ display:flex; align-items:center; gap:18px; }}
+.key-points-area {{ position:absolute; top:36%; left:0; right:0; padding:0 50px; z-index:5; }}
+.key-points {{ list-style:none; display:flex; flex-direction:column; gap:16px; }}
+.key-points li {{ display:flex; align-items:center; gap:20px; }}
+.kp-circle {{
+  width:128px; height:128px; border-radius:50%; flex-shrink:0;
+  overflow:hidden; position:relative;
+  box-shadow:0 6px 18px rgba(0,0,0,0.5);
+  border:4px solid rgba(255,255,255,0.4);
+}}
 .kp-num {{
   display:inline-flex; align-items:center; justify-content:center;
-  min-width:64px; height:64px; border-radius:50%;
+  width:128px; height:128px; border-radius:50%;
   background:linear-gradient(135deg, {d["accent"]}, {d["accent_light"]});
-  color:#fff; font-size:32px; font-weight:900; flex-shrink:0;
-  box-shadow:0 4px 14px rgba(0,0,0,0.45);
-  border:3px solid rgba(255,255,255,0.35);
+  color:#fff; font-size:56px; font-weight:900; flex-shrink:0;
+  box-shadow:0 6px 18px rgba(0,0,0,0.5);
+  border:4px solid rgba(255,255,255,0.35);
 }}
-.kp-emoji {{ font-size:44px; background:none; border:none; box-shadow:none; min-width:64px; height:64px; }}
+.kp-emoji {{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:128px; height:128px; font-size:88px;
+  background:none; flex-shrink:0;
+}}
+.kp-img {{
+  width:128px; height:128px; object-fit:cover; display:block;
+}}
 .kp-text {{
   font-size:88px; font-weight:800;
   color:#fff;
@@ -400,6 +424,40 @@ async def run_pipeline(args):
     emoji_paths = ensure_emoji_cache(os.path.join(work_dir, "_emoji"), all_emojis)
     print(f"  ✅ {len(emoji_paths)} emoji PNGs ready")
 
+    # ── Step 2.5: Search & download key point images ─────────────────────
+    kp_image_paths = []  # list of file paths, one per key point
+    if args.key_points and args.kp_image_queries:
+        print(f"\n📸 Step 2.5: Searching images for {len(args.key_points)} key points...")
+        kp_img_dir = os.path.join(work_dir, "_kp_images")
+        os.makedirs(kp_img_dir, exist_ok=True)
+        for i, (point, query) in enumerate(zip(args.key_points, args.kp_image_queries)):
+            if i >= 5:
+                break
+            print(f"  KP{i+1}: '{point}' → searching '{query}'...")
+            kp_urls = search_bing_images(query, count=5)
+            found = False
+            for j, url in enumerate(kp_urls):
+                ext = "jpg" if any(e in url.lower() for e in (".jpg", ".jpeg")) else "png"
+                dest = os.path.join(kp_img_dir, f"kp_{i+1:02d}.{ext}")
+                if download_image(url, dest, min_size=2000):
+                    try:
+                        from PIL import Image as PILImage
+                        img = PILImage.open(dest)
+                        w, h = img.size
+                        if w >= 100 and h >= 100:
+                            kp_image_paths.append(dest)
+                            print(f"    ✅ kp_{i+1:02d}.{ext} ({w}x{h})")
+                            found = True
+                            break
+                        else:
+                            os.remove(dest)
+                    except Exception:
+                        pass
+            if not found:
+                print(f"    ⚠️  No image found for KP{i+1}, will use emoji/number fallback")
+                kp_image_paths.append(None)
+        print(f"  ✅ {sum(1 for p in kp_image_paths if p)}/{len(args.key_points)} key point images downloaded")
+
     # ── Step 3: Build designs ─────────────────────────────────────────────
     print(f"\n🖼️  Step 3: Building cover designs...")
 
@@ -416,6 +474,14 @@ async def run_pipeline(args):
         tmpl = DESIGN_TEMPLATES[i]
         bg = selected[i]
 
+        # Build kp_images base64 list for this design
+        kp_imgs_b64 = []
+        for kp_path in kp_image_paths:
+            if kp_path and os.path.exists(kp_path):
+                kp_imgs_b64.append(img_to_base64(kp_path))
+            else:
+                kp_imgs_b64.append(None)
+
         d = {
             "bg": img_to_base64(bg) if bg else "",
             "accent": tmpl["accent"],
@@ -430,6 +496,7 @@ async def run_pipeline(args):
             "btn_emoji": tmpl["btn_emoji"],
             "key_points": args.key_points if args.key_points else [],
             "kp_emojis": args.kp_emojis if args.kp_emojis else [],
+            "kp_images": kp_imgs_b64,
         }
 
         # If no bg image, use gradient fallback
@@ -495,7 +562,8 @@ Examples:
     parser.add_argument("--cta", required=True, help="CTA question text")
     parser.add_argument("--cta-emoji", default="", help="CTA emoji (optional)")
     parser.add_argument("--key-points", nargs="+", default=[], help="Key points to display on cover")
-    parser.add_argument("--kp-emojis", nargs="+", default=[], help="Emojis for key point circles (e.g., 🍜 🌶️ 🥟 🍳 🧄)")
+    parser.add_argument("--kp-emojis", nargs="+", default=[], help="Emojis for key point circles (fallback if no image)")
+    parser.add_argument("--kp-image-queries", nargs="+", default=[], help="Bing search query for each key point image (e.g., 'sunrise sky' 'ocean wave' 'mountain peak')")
     parser.add_argument("--content", default="", help="Post body content (for publish hint)")
     parser.add_argument("--output", default="/tmp/xhs_covers", help="Output directory")
     parser.add_argument("--count", type=int, default=10, help="Number of images to download")
@@ -539,6 +607,7 @@ Examples:
                     "btn_emoji": tmpl["btn_emoji"],
                     "key_points": args.key_points if args.key_points else [],
                     "kp_emojis": args.kp_emojis if args.kp_emojis else [],
+                    "kp_images": [],  # Not supported in skip mode
                 }
                 designs.append(d)
             await render_covers(designs, work_dir)
