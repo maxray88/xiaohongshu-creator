@@ -189,163 +189,238 @@ def img_to_base64(path: str) -> str:
     with open(path, "rb") as f:
         return f"data:{mime};base64,{base64.b64encode(f.read()).decode()}"
 
-
 def build_cover_html(d: dict) -> str:
-    """Build HTML for a single cover design. Each key point can have an image thumbnail or emoji."""
+    """Build HTML for a single cover design. Warm paper texture style with keyword highlighting."""
     sub_emj_html = f'<span class="sub-emoji">{d.get("sub_emoji","")}</span>' if d.get("sub_emoji") else ""
     cta_emj_html = f'<span class="cta-emoji">{d.get("cta_emoji","")}</span>' if d.get("cta_emoji") else ""
     btn_emj_html = f'<span class="btn-emoji">{d.get("btn_emoji","")}</span>' if d.get("btn_emoji") else ""
 
-    # Build key points HTML — supports image thumbnails, emoji, or number fallback
+    # Build key points HTML — supports keyword highlighting
     key_points_html = ""
     key_points = d.get("key_points", [])
-    kp_emojis = d.get("kp_emojis", [])
-    kp_images = d.get("kp_images", [])   # base64 thumbnails for each key point
     if key_points:
         items_html = ""
         for i, point in enumerate(key_points[:5]):
-            kp_img = kp_images[i] if i < len(kp_images) else None
-            kp_emj = kp_emojis[i] if i < len(kp_emojis) else None
-
-            if kp_img:
-                # Image thumbnail (circle-cropped)
-                circle_html = f'<img src="{kp_img}" class="kp-img" alt="">'
-            elif kp_emj:
-                # Emoji (large)
-                circle_html = f'<span class="kp-emoji">{kp_emj}</span>'
-            else:
-                # Number fallback
-                circle_html = f'<span class="kp-num">{i+1}</span>'
-
-            items_html += f'<li><div class="kp-circle">{circle_html}</div><span class="kp-text">{point}</span></li>\n'
+            # Simple keyword highlighting: wrap **text** in <span class="kw">text</span>
+            import re
+            highlighted_point = re.sub(r'\*\*(.*?)\*\*', r'<span class="kw">\1</span>', point)
+            # Also support simple word highlighting: wrap in <>
+            highlighted_point = re.sub(r'<(.*?)>', r'<span class="kw">\1</span>', highlighted_point)
+            
+            items_html += f'<li><span class="kp-text">{highlighted_point}</span></li>\n'
         key_points_html = f'<ul class="key-points">{items_html}</ul>'
 
-    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
+    return f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
 * {{ margin:0; padding:0; box-sizing:border-box; }}
-html, body {{ width:1080px; height:1440px; overflow:hidden; background:#111; }}
-.cover {{ width:1080px; height:1440px; position:relative;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "STHeiti", sans-serif; }}
-.bg {{ position:absolute; inset:0; background-image:url('{d["bg"]}');
-  background-size:cover; background-position:center 20%; }}
-.overlay {{ position:absolute; inset:0;
-  background:linear-gradient(to bottom,
-    {d["accent"]}ee 0%, {d["accent"]}88 18%, transparent 38%,
-    transparent 55%, {d["accent"]}55 78%, {d["accent"]}ee 100%); }}
-.accent-top {{ position:absolute; top:0; left:0; right:0; height:22px; background:{d["accent"]}; z-index:10; }}
-.accent-bot {{ position:absolute; bottom:0; left:0; right:0; height:22px; background:{d["accent"]}; z-index:10; }}
+html, body {{ width:1080px; height:1440px; overflow:hidden; }}
+.cover {{ width:1080px; height:1440px; position:relative; background:#faf6f1; font-family:"PingFang SC","STHeiti","Hiragino Sans GB",sans-serif; }}
 
-/* ── Title area ── */
-.title-area {{ position:absolute; top:0; left:0; right:0; padding:70px 40px 10px; text-align:center; z-index:5; }}
-.title-row {{ display:flex; align-items:center; justify-content:center; gap:14px; margin-bottom:10px; flex-wrap:wrap; }}
-.title-text {{
-  font-size:130px; font-weight:900; color:#fff;
-  letter-spacing:3px; line-height:1.1;
-  -webkit-text-stroke: 4px {d["accent"]};
-  paint-order: stroke fill;
-  text-shadow:
-    0 0 30px {d["accent"]}cc,
-    0 0 60px {d["accent"]}66,
-    5px 8px 18px rgba(0,0,0,0.7);
+.paper {{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(ellipse at 30% 20%, rgba(255,200,150,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, rgba(150,200,255,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(255,220,170,0.05) 0%, transparent 60%);
 }}
-.title-emoji {{ font-size:110px; filter:drop-shadow(4px 6px 12px rgba(0,0,0,0.55)); }}
-.subtitle-row {{ display:flex; align-items:center; justify-content:center; gap:10px; }}
-.subtitle-text {{
-  font-size:68px; font-weight:800; color:{d["accent_light"]};
-  text-shadow:
-    0 0 20px {d["accent"]}88,
-    3px 4px 10px rgba(0,0,0,0.6);
+
+.blob {{
+  position:absolute;
+  border-radius:50%;
+  filter:blur(40px);
+  opacity:0.3;
+}}
+
+.title-wrap {{
+  position:absolute;
+  top:70px; left:60px; right:60px;
+  text-align:center;
+  z-index:5;
+}}
+
+.title-main {{
+  font-size:92px;
+  font-weight:900;
+  color: #2a2520;
+  line-height:1.2;
+  letter-spacing:2px;
+  transform: rotate(-0.8deg);
+  text-shadow: 3px 3px 0px rgba(0,0,0,0.04);
+}}
+
+.title-main .kw {{
+  color: #e07850;
+  font-size:105px;
+  text-shadow: 2px 3px 0px rgba(224,120,80,0.15);
+  position:relative;
+}}
+.title-main .kw::after {{
+  content:'';
+  position:absolute; bottom:-4px; left:-4px; right:-4px; height:8px;
+  background: rgba(224,120,80,0.25);
+  border-radius:4px;
+  transform: rotate(-0.5deg);
+}}
+
+.title-line {{
+  width:280px;
+  height:8px;
+  margin:10px auto 0;
+  background: linear-gradient(90deg, transparent 0%, #e8a87c 30%, #d4956b 70%, #e8a87c 100%);
+  border-radius:4px;
+  transform: rotate(-0.5deg);
+  opacity:0.8;
+}}
+
+.title-sub {{
+  font-size:40px;
+  color: #9a8060;
+  margin-top:12px;
+  font-weight:600;
+  transform: rotate(0.5deg);
+}}
+
+.kp-wrap {{
+  position:absolute;
+  top:390px; left:60px; right:60px;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}}
+
+.kp-card {{
+  display:flex;
+  align-items:center;
+  gap:20px;
+  padding:18px 28px;
+  background: #fffef9;
+  border-radius:6px;
+  box-shadow:
+    2px 3px 10px rgba(0,0,0,0.05),
+    0 0 0 1px rgba(0,0,0,0.02);
+  transform: rotate(var(--r, 0deg));
+  border-left: 6px solid var(--c, #e8a87c);
+}}
+
+.kp-badge {{
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  background: var(--cb, #fef3e8);
+  color: var(--c, #e8a87c);
+  font-size:28px;
+  font-weight:900;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-shrink:0;
+  border:2.5px dashed var(--c, #e8a87c);
+}}
+
+.kp-text {{
+  font-size:38px;
+  color: #3a3530;
+  font-weight:700;
+  line-height:1.35;
+}}
+
+.kp-text .kw {{
+  color: var(--kwc, #e07850);
+  font-weight:900;
+  font-size:44px;
+  position:relative;
+  text-shadow: 1px 1px 0px rgba(224,120,80,0.1);
+}}
+.kp-text .kw::after {{
+  content:'';
+  position:absolute; bottom:-2px; left:-2px; right:-2px; height:6px;
+  background: rgba(224,120,80,0.2);
+  border-radius:3px;
+  transform: rotate(-0.8deg);
+}}
+
+.cta-wrap {{
+  position:absolute;
+  bottom:60px;
+  left:50px;
+  right:50px;
+  text-align:center;
+  z-index:5;
+}}
+
+.cta-inner {{
+  display:inline-block;
+  padding:20px 56px;
+  background: #2a2520;
+  border-radius:10px;
+  transform: rotate(-1.2deg);
+  box-shadow: 5px 5px 0px rgba(0,0,0,0.08);
+}}
+
+.cta-text {{
+  font-size:36px;
+  color: #fff;
+  font-weight:700;
   letter-spacing:1px;
 }}
-.sub-emoji {{ font-size:60px; }}
 
-/* ── Key points area ── */
-.key-points-area {{ position:absolute; top:36%; left:0; right:0; padding:0 50px; z-index:5; }}
-.key-points {{ list-style:none; display:flex; flex-direction:column; gap:16px; }}
-.key-points li {{ display:flex; align-items:center; gap:20px; }}
-.kp-circle {{
-  width:128px; height:128px; border-radius:50%; flex-shrink:0;
-  overflow:hidden; position:relative;
-  box-shadow:0 6px 18px rgba(0,0,0,0.5);
-  border:4px solid rgba(255,255,255,0.4);
-}}
-.kp-num {{
-  display:inline-flex; align-items:center; justify-content:center;
-  width:128px; height:128px; border-radius:50%;
-  background:linear-gradient(135deg, {d["accent"]}, {d["accent_light"]});
-  color:#fff; font-size:56px; font-weight:900; flex-shrink:0;
-  box-shadow:0 6px 18px rgba(0,0,0,0.5);
-  border:4px solid rgba(255,255,255,0.35);
-}}
-.kp-emoji {{
-  display:inline-flex; align-items:center; justify-content:center;
-  width:128px; height:128px; font-size:88px;
-  background:none; flex-shrink:0;
-}}
-.kp-img {{
-  width:128px; height:128px; object-fit:cover; display:block;
-}}
-.kp-text {{
-  font-size:88px; font-weight:800;
-  color:#fff;
-  -webkit-text-stroke: 3px {d["accent"]};
-  paint-order: stroke fill;
-  text-shadow:
-    0 0 20px {d["accent"]}cc,
-    0 0 40px {d["accent"]}66,
-    4px 6px 12px rgba(0,0,0,0.75);
-  line-height:1.35; letter-spacing:1px;
+.corner-deco {{
+  position:absolute;
+  font-size:32px;
+  opacity:0.18;
 }}
 
-/* ── CTA area ── */
-.cta-area {{ position:absolute; bottom:0; left:0; right:0; padding:12px 50px 42px; text-align:center; z-index:5; }}
-.cta-row {{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:22px; }}
-.cta-text {{
-  font-size:54px; font-weight:900; color:#fff;
-  text-shadow:
-    0 0 18px {d["accent"]}88,
-    3px 5px 12px rgba(0,0,0,0.7);
+.scribble-line {{
+  position:absolute;
+  height:3px;
+  background: repeating-linear-gradient(90deg, #d4956b 0px, #d4956b 8px, transparent 8px, transparent 14px);
+  opacity:0.3;
+  border-radius:2px;
 }}
-.cta-emoji {{ font-size:50px; }}
-.cta-btn {{
-  display:inline-flex; align-items:center; gap:14px;
-  padding:22px 68px; border-radius:60px;
-  background:linear-gradient(135deg, {d["accent"]}, {d["accent_light"]});
-  font-size:42px; font-weight:900; color:#fff;
-  box-shadow:0 10px 30px rgba(0,0,0,0.5), 0 0 20px {d["accent"]}44;
-  border:2px solid rgba(255,255,255,0.25);
+
+.brand-mark {{
+  position=absolute;
+  bottom=22px;
+  right=35px;
+  font-size=22px;
+  color: rgba(0,0,0,0.12);
+  font-weight=600;
+  transform: rotate(-2deg);
 }}
-.btn-emoji {{ font-size:40px; }}
+
 </style></head><body>
 <div class="cover">
-  <div class="bg"></div>
-  <div class="overlay"></div>
-  <div class="accent-top"></div>
-  <div class="accent-bot"></div>
-  <div class="title-area">
-    <div class="title-row">
-      <span class="title-text">{d["title"]}</span>
-      <span class="title-emoji">{d["emoji"]}</span>
-    </div>
-    <div class="subtitle-row">
-      <span class="subtitle-text">{d["subtitle"]}</span>
-      {sub_emj_html}
-    </div>
+  <div class="paper"></div>
+  <div class="blob" style="width:400px;height:400px;background:#ffd4a8;top:-50px;left:-80px;"></div>
+  <div class="blob" style="width:350px;height:350px;background:#a8d4ff;bottom:100px;right:-60px;"></div>
+  <div class="blob" style="width:250px;height:250px;background:#c8e6c9;top:50%;left:70%;"></div>
+
+  <div class="corner-deco" style="top:20px;left:25px;">✏️</div>
+  <div class="corner-deco" style="top:25px;right:30px;">📝</div>
+  <div class="corner-deco" style="bottom:200px;left:20px;">💭</div>
+  <div class="corner-deco" style="bottom:220px;right:25px;">✨</div>
+  <div class="scribble-line" style="width:180px;top=30px;left=120px;transform:rotate(-3deg);"></div>
+  <div class="scribble-line" style="width=140px;top=55px;right=100px;transform:rotate(2deg);"></div>
+
+  <div class="title-wrap">
+    <div class="title-main">{d["title"]}</div>
+    <div class="title-line"></div>
+    <div class="title-sub">{d["subtitle"]}</div>
   </div>
-  <div class="key-points-area">
+
+  <div class="kp-wrap">
     {key_points_html}
   </div>
-  <div class="cta-area">
-    <div class="cta-row">
-      <span class="cta-text">{d["cta"]}</span>
-      {cta_emj_html}
-    </div>
-    <div class="cta-btn">
-      <span>{d["cta_btn"]}</span>
-      {btn_emj_html}
+
+  <div class="cta-wrap">
+    <div class="cta-inner">
+      <div class="cta-text">{d["cta"]}</div>
     </div>
   </div>
-</div></body></html>"""
+
+  <div class="brand-mark">情绪树洞 🌙</div>
+</div>
+</body></html>"""
 
 
 async def render_covers(designs: list[dict], output_dir: str):

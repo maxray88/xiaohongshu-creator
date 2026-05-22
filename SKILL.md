@@ -33,25 +33,28 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   └── render_covers.py                  # Cover image renderer (Playwright + HTML, standalone)
 ├── templates/
 │   └── xhs_content_prompt_template.md  # LLM prompt template for content generation (editable)
-└── references/
-    ├── xiaohongshu-content-gen.md        # Content generation guide & viral formula
-    ├── xiaohongshu-marketing.md          # Marketing strategy guide
-    ├── playwright-environment.md          # Technical reference
-    ├── xiaohongshu-publish-page-deep-dive.md  # Publish page DOM deep reference
-    ├── best-practices.md                  # Best practices & pitfalls
-    ├── cdp-mode-with-patchright.md       # CDP + Patchright setup
-    ├── image-acquisition-and-composition.md  # Image acquisition guide
-    ├── openverse-search-findings.md         # Openverse search limitations for anime characters
-    ├── xiaohongshu-mcp-server-setup.md   # MCP server setup
-    ├── session-learnings-2026-05-15.md   # Session learnings (2026-05-15)
-    ├── session-learnings-2026-05-16.md   # Session learnings (2026-05-16)
-    ├── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough
-    ├── session-learnings-2026-05-18.md   # Session learnings (2026-05-18) — emoji rendering, base64 bg, content pipeline
-    ├── session-learnings-2026-05-18-p2.md # Session learnings (2026-05-18 P2) — analytics column order, prompt escaping
-    ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — CDP comment posting, auto-engage like+comment
-    ├── session-learnings-2026-05-20.md   # Session learnings (2026-05-20) — cover font sizes, key points on cover, navigation fixes
-    └── github-workflow.md                # GitHub upload workflow
-```
+├── references/
+│   ├── xiaohongshu-content-gen.md        # Content generation guide & viral formula
+│   ├── xiaohongshu-marketing.md          # Marketing strategy guide
+│   ├── playwright-environment.md          # Technical reference
+│   ├── xiaohongshu-publish-page-deep-dive.md  # Publish page DOM deep reference
+│   ├── best-practices.md                  # Best practices & pitfalls
+│   ├── cdp-mode-with-patchright.md       # CDP + Patchright setup
+│   ├── image-acquisition-and-composition.md  # Image acquisition guide
+│   ├── openverse-search-findings.md         # Openverse search limitations for anime characters
+│   ├── xiaohongshu-mcp-server-setup.md   # MCP server setup
+│   ├── session-learnings-2026-05-15.md   # Session learnings (2026-05-15)
+│   ├── session-learnings-2026-05-16.md   # Session learnings (2026-05-16)
+│   ├── session-learnings-2026-05-17.md   # Session learnings (2026-05-17) — `_onPublish()` breakthrough
+│   ├── session-learnings-2026-05-18.md   # Session learnings (2026-05-18) — emoji rendering, base64 bg, content pipeline
+│   ├── session-learnings-2026-05-18-p2.md # Session learnings (2026-05-18 P2) — analytics column order, prompt escaping
+│   ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — CDP comment posting, auto-engage like+comment
+│   ├── session-learnings-2026-05-20.md   # Session learnings (2026-05-20) — cover font sizes, key points on cover, navigation fixes
+│   ├── session-learnings-2026-05-21.md   # Session learnings (2026-05-21) — Emoji 2x, theme images, draft mode, multi-image upload
+│   ├── feishu-channel-notification.md     # Feishu IM channel messaging for publish reports
+│   ├── github-workflow.md                # GitHub upload workflow
+│   ├── cover-style-s6-optimized.md       # Approved warm paper texture style with keyword highlighting
+│   └── treehole-strategy.md              # Current strategy: 泛心理与情绪树洞
 
 **Python**: Use the Hermes agent venv Python for all scripts:
 ```bash
@@ -68,7 +71,14 @@ PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
 3. **Code/scripts**: Verify syntax with `py_compile` before declaring done.
 4. **Screenshots**: When publishing, review screenshots at each step to catch issues early.
 
-**Feishu delivery**: Use `MEDIA:/absolute/path/to/file` for images. Send all cover variants so the user can choose. Never send unverified outputs.
+**Feishu image delivery — RELIABLE method**: The `MEDIA:/path` approach via `send_message` does NOT reliably deliver images. Use this workflow instead:
+1. Upload image via Feishu image API (`POST /open-apis/im/v1/images`) with `image_type=message` → get `image_key`
+2. Send image message via Feishu message API (`POST /open-apis/im/v1/messages?receive_id_type=chat_id`) with `msg_type=image` and `content=json.dumps({"image_key": image_key})`
+3. Use `execute_code` (Python urllib) for both steps — see avatar generation workflow for full code pattern.
+
+**Feishu text + link delivery**: Use `send_message` with `action=send` and `target=feishu` for text messages with clickable links. This works reliably.
+
+**Feishu channel notifications (publish reports)**: For automated cron publish jobs, send structured reports to a Feishu channel using the IM API directly. See `references/feishu-channel-notification.md` for the full Python pattern. Key: use `receive_id_type=chat_id` and `msg_type=text` with `json.dumps({"text": message})`.
 
 ## Prerequisites
 
@@ -197,30 +207,48 @@ See `references/image-acquisition-and-composition.md` for the full workflow.
 **Font choices for covers** (user-approved minimums — never go smaller):
 - **Title**: Comic Sans MS Bold **≥130px** with accent-color stroke + glow shadow (user explicitly requested larger, more eye-catching titles)
 - **Subtitle**: Arial Rounded Bold **≥68px** with glow shadow
-- **Key points**: **≥88px** with accent-color stroke + 3-layer glow shadow + **themed Emoji circles** (64px, no bg/border)
+- **Key points**: **≥88px** (2x from 44px) with accent-color stroke + 3-layer glow shadow for maximum contrast against any background
+- **Key point circles**: **128px** diameter — supports **theme images** (circle-cropped), **Emoji** (88px font), or **numbers** (56px font) as fallback
 - **CTA text**: **≥54px** with glow shadow
 - **CTA button**: **≥42px** with gradient background + glow shadow
 - **Emoji**: Rendered natively by browser **≥110px** — perfect color
 - **Accent bars**: **22px** top and bottom edges
 - **Reliable in sandbox**: `STHeiti Medium.ttc`, `Comic Sans MS Bold.ttf`, `Arial Rounded Bold.ttf`
 - **Avoid**: `PingFang.ttc` — may fail with `OSError` in sandbox
-- **⚠️ User explicitly rejected fonts below these sizes as "too small" — always use these minimums. Key point text must be 88px (2x from 44px).**
+- **⚠️ User explicitly rejected fonts below these sizes as "too small" — always use these minimums.**
 
-**Cover key points feature**: The cover template supports displaying key points from the body text with **themed Emoji circles** (replacing numbered badges). Pass `--key-points` and `--kp-emojis` to `xhs_image_pipeline.py`. Max 5 points.
-- `--key-points "葱油拌面·香到邻居" "番茄鸡蛋面·酸甜开胃"` — the text
-- `--kp-emojis "🧅" "🍅" "🥜" "🌶️" "🍜"` — emoji for each circle (falls back to 1,2,3... if omitted)
-- Emoji circles: 64px, no background, no border, no shadow — clean emoji display
-- Key point text: 88px, white + 3px accent stroke + 3-layer glow shadow
+**Cover key points feature**: The cover template supports displaying key points from the body text with **three circle modes** (priority order):
+1. **Theme images** (recommended): Pass `--kp-image-queries` with a Bing search query for each key point. Images are circle-cropped (128px, `object-fit: cover`, white border + shadow).
+2. **Emoji circles**: Pass `--kp-emojis` for themed emoji (88px font, no background/border/shadow).
+3. **Number fallback**: If neither image nor emoji provided, shows gradient circle with number.
+
+```bash
+# Full example with theme images + emoji fallback:
+$PYTHON xhs_image_pipeline.py \
+  --query "space galaxy universe aesthetic" \
+  --title "5个冷知识" --emoji "🧠" \
+  --subtitle "知道3个算你厉害" \
+  --cta "你知道几个？" \
+  --key-points "章鱼有三颗心脏" "蜂蜜永远不会变质" "香蕉是浆果草莓不是" "一生走路绕地球4圈" "章鱼的血是蓝色的" \
+  --kp-image-queries "octopus underwater" "honey jar golden" "banana strawberry fruits" "earth globe space" "blue octopus blood" \
+  --kp-emojis "🐯" "🍯" "🍌" "🌍" "💙" \
+  --output /tmp/xhs_covers
+```
+
+- Max 5 key points per cover
+- Theme images downloaded to `_kp_images/` subdir, converted to base64 for HTML embedding
 - See `references/session-learnings-2026-05-20.md` for full CSS details.
 
-**Xiaohongshu-style cover design (v3 — current)**:
+**Xiaohongshu-style cover design (v4 — current)**:
 - Real photo backgrounds with gradient overlay (top/bottom dark, center transparent)
 - Accent color lines (22px) at top and bottom edges
 - Top title area: large bold title (130px) with accent stroke + multi-layer glow
-- Center key points area: numbered list with gradient circle badges
+- Center key points area: each key point has a **128px circle** containing either a **theme image** (circle-cropped), **Emoji** (88px), or **number** (56px gradient badge)
+- Key point text: **88px** with accent stroke + 3-layer glow shadow for maximum contrast
 - Bottom CTA area: pill-shaped gradient button with glow shadow
 - CTA asks personal question (not yes/no) to encourage comments
 - 1080×1440 (3:4 portrait)
+- Per-key-point theme images searched via Bing, downloaded to `_kp_images/`, embedded as base64
 
 ### Step 3: Research Hashtags
 
@@ -253,19 +281,22 @@ The publish script (v10) will:
 3. **Double-navigate to publish URL** — goto `PUBLISH_URL` twice to force SPA re-render (fixes stale success page from previous publish)
 4. **Use `domcontentloaded` not `commit`** — `wait_until="commit"` times out on XHS; `domcontentloaded` is more reliable. Wrap in try/except to handle timeouts gracefully.
 5. **Detect & switch to image tab** — Bezier-curve human-like click on "上传图文" tab
-6. **Upload images** — via file input with `wait_for(state="attached")` before setting files (triggers form to render)
+6. **Upload images** — via file input with `wait_for(state="attached")` before setting files (triggers form to render). Supports **multiple images** (cover + key point images). Upload wait time scales dynamically: `20s + 5s × image_count`. Batch upload failure auto-falls back to one-by-one.
 7. **Fill title** — JS nativeSetter (primary) → keyboard typing (fallback)
 8. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
 9. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
-10. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
-11. **Verify result** — checks URL + page text for 发布成功/审核/草稿
-12. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
+10. **Draft-only mode** — if `--draft-only` flag set, skip publish entirely; form is auto-saved as draft by XHS
+11. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
+12. **Verify result** — checks URL + page text for 发布成功/审核/草稿
+13. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
 
 > ✅ **Fully Automatic Publishing** (since 2026-05-17): The `xhs-publish-btn` Custom Element's `_onPublish()` method is called directly via JS, bypassing `event.isTrusted`. No manual click required.
 
 > ⚠️ **CRITICAL**: Do NOT click the sidebar "发布笔记" button (class `publish-video`, at viewport ~x=80, y=90). That's a NAVIGATION button that goes to the publish page. The actual publish button is `xhs-publish-btn` inside the form. Use `_onPublish()` to trigger it.
 
 > 📝 **Note**: Old publish scripts (`xhs_publish_v8.py`, `xhs_publish_cdp_sync.py`) have been removed. `xhs_publish.py` v10 is the single authoritative publish script.
+
+> ⚠️ **Long content via CLI**: Content >~200 chars or with many emojis in CLI args triggers security scan timeout. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`.
 
 ### Step 5: Track Performance
 
@@ -420,6 +451,55 @@ The skill is maintained at: https://github.com/maxray88/xiaohongshu-creator
 
 See `references/github-workflow.md` for upload/push workflow.
 
+## Content Strategy
+
+Content strategy is **orthogonal** to publishing mechanics. The same pipeline (content → images → publish → analytics) works for any content vertical.
+
+### Strategy Pivots
+When the user pivots content strategy:
+1. **Don't redo infrastructure** — image pipeline, publish scripts, and cron are strategy-agnostic
+2. **Only content changes** — titles, body text, cover queries, key points
+3. **Save strategy docs** to `references/` for future reference
+4. **Reusable assets** — bg images from old strategy may not fit new theme; always search new images
+
+### Current Strategy: 泛心理与情绪树洞 (2026-05-21)
+- **Niche**: 职场反内耗 / 恋爱清醒脑 / 社交焦虑自救 / 当代年轻人精神状态实录
+- **Format**: 金句图文 or 沉浸式树洞
+- **Tone**: 温柔但不软弱，清醒但不冷漠，像朋友深夜聊天
+- **Cover style**: Warm paper texture with keyword highlighting (S6 optimized) — user explicitly rejected heavy AI feel (glow effects, thick outlines, bright gradients, perfect geometry) in favor of hand-drawn/painterly/natural styles
+- **Full strategy + 80+ topics + 30-day calendar**: See `references/treehole-strategy.md`
+
+### Cover Design Style Guide (2026-05-21)
+- **User explicitly rejected**: "heavy AI feel" — glow effects, thick stroke outlines, bright gradient backgrounds, perfect geometric shapes
+- **User prefers**: hand-drawn / painterly / natural styles — paper textures, watercolor washes, sketch lines, warm muted palettes, slight rotations/tilts
+- **Current approved style**: Warm paper texture with keyword highlighting (S6 optimized) featuring:
+  * Subtle paper grain texture via layered radial gradients
+  * Watercolor blob backgrounds in warm/cool tones
+  * Hand-drawn title with keyword highlighting (bold, larger size, warm accent color)
+  * Accent underline with gradient fill
+  * Key points as cards with left accent border, slight rotation, and shadow
+  * Keyword highlighting within key points (accent color, larger size, subtle shadow)
+  * Scribble line and corner doodle decorations (✏️📝💭✨)
+  * Brand mark in bottom right
+- **Always generate 3-6 style variants** before asking user to choose; render all via Playwright, upload to Feishu for review
+- **6 style templates** (S1-S6) tested and saved to `/tmp/xhs_styles/` — see `references/cover-style-templates.md` for gallery
+- **Feishu image delivery**: Use `execute_code` with Feishu image API (upload → get image_key → send image message). Do NOT rely on `send_message` with `media` param for images — unreliable.
+  * Hand-drawn title with keyword highlighting (bold, larger size, warm accent color)
+  * Accent underline with gradient fill
+  * Key points as cards with left accent border, slight rotation, and shadow
+  * Keyword highlighting within key points (accent color, larger size, subtle shadow)
+  * Scribble line and corner doodle decorations (✏️📝💭✨)
+  * Brand mark in bottom right
+- **Always generate 3-6 style variants** before asking user to choose; render all via Playwright, upload to Feishu for review
+- **6 style templates** (S1-S6) tested and saved to `/tmp/xhs_styles/` — see `references/cover-style-templates.md` for gallery
+- **Feishu image delivery**: Use `execute_code` with Feishu image API (upload → get image_key → send image message). Do NOT rely on `send_message` with `media` param for images — unreliable.
+
+### Previous Strategy: 冷知识科普 (archived)
+- See `references/cold-facts-strategy.md` and `references/30day-calendar.md`
+
+### Batch Generation Workflow
+For generating N posts at once + setting up cron auto-publish, see `references/batch-generation-workflow.md`.
+
 ### Check if session is valid
 ```bash
 $PYTHON -c "
@@ -480,10 +560,9 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `#content-textarea` null after navigation | Note page still loading after SPA navigation. Always use `page.wait_for_selector('#content-textarea', timeout=10000)` before interacting. See `references/session-learnings-2026-05-19.md`. |
 | `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
 | Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |
-| Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles instead of numbered badges. |
+| Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles (88px font, 128px circle) or `--kp-image-queries` for per-key-point theme images (128px circle-cropped). |
+| Cover emoji circles too small | User preference: emoji circles must be **128px** (2x from 64px) with **88px** font. Number circles also 128px with 56px font. |
 | `xhs_auto_publish.py` cover queries don't match topic | Known issue: `--topic` flows to content generation but cover image search queries may still use hardcoded values. Manually verify cover relevance or use `xhs_image_pipeline.py` directly with correct `--query`. |
 | Long content via CLI triggers security scan timeout | Content >~200 chars or with many emojis in CLI args gets blocked. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`. |
-| Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |
-| Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles instead of numbered badges. |
-| `xhs_auto_publish.py` cover queries don't match topic | Known issue: `--topic` flows to content generation but cover image search queries may still use hardcoded values. Manually verify cover relevance or use `xhs_image_pipeline.py` directly with correct `--query`. |
-| Long content via CLI triggers security scan timeout | Content >~200 chars or with many emojis in CLI args gets blocked. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`. |
+| Multi-image upload times out | Uploading 6+ images can exceed Playwright's default timeout. Script auto-scales wait time (20s + 5s/image) and falls back to one-by-one upload if batch fails. |
+| `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
