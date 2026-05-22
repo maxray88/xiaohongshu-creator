@@ -238,18 +238,19 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; }}
 }}
 
 .title-main {{
-  font-size:92px;
+  font-size:130px;  /* Per spec: ≥130px */
   font-weight:900;
   color: #2a2520;
   line-height:1.2;
   letter-spacing:2px;
   transform: rotate(-0.8deg);
-  text-shadow: 3px 3px 0px rgba(0,0,0,0.04);
+  -webkit-text-stroke: 2px solid #C9A66B;  /* Stroke requirement */
+  text-shadow: 0 0 10px rgba(200,150,100,0.2), 0 0 6px rgba(200,150,100,0.15);  /* Glow */
 }}
 
 .title-main .kw {{
   color: #e07850;
-  font-size:105px;
+  font-size:150px;  /* 20% larger than title */
   text-shadow: 2px 3px 0px rgba(224,120,80,0.15);
   position:relative;
 }}
@@ -281,18 +282,20 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; }}
 
 .kp-wrap {{
   position:absolute;
-  top:390px; left:60px; right:60px;
+  top:480px;  /* Adjusted for better vertical centering with larger fonts */
+  left:60px; right:60px;
   z-index:5;
   display:flex;
   flex-direction:column;
-  gap:18px;
+  gap:15px;  /* Reduced gap to fit 4 cards */
 }}
 
 .kp-card {{
   display:flex;
   align-items:center;
+  justify-content:center;  /* Center text horizontally */
   gap:20px;
-  padding:18px 28px;
+  padding:16px 24px;  /* Slightly reduced padding to control height */
   background: #fffef9;
   border-radius:6px;
   box-shadow:
@@ -303,8 +306,7 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; }}
 }}
 
 .kp-badge {{
-  width:58px;
-  height:58px;
+  width:64px; height:64px;  /* Slightly smaller to balance large text */
   border-radius:50%;
   background: var(--cb, #fef3e8);
   color: var(--c, #e8a87c);
@@ -318,16 +320,18 @@ html, body {{ width:1080px; height:1440px; overflow:hidden; }}
 }}
 
 .kp-text {{
-  font-size:38px;
+  font-size:110px;  /* Per spec: ≥88px, increased for prominence */
   color: #3a3530;
   font-weight:700;
   line-height:1.35;
+  -webkit-text-stroke: 1px solid #C9A66B;  /* Subtle stroke for readability */
+  text-shadow: 0 0 8px rgba(200,150,100,0.15);  /* Soft glow */
 }}
 
 .kp-text .kw {{
   color: var(--kwc, #e07850);
   font-weight:900;
-  font-size:44px;
+  font-size:130px;  /* Larger than base kp-text */
   position:relative;
   text-shadow: 1px 1px 0px rgba(224,120,80,0.1);
 }}

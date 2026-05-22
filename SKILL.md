@@ -51,9 +51,11 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── session-learnings-2026-05-19.md   # Session learnings (2026-05-19) — CDP comment posting, auto-engage like+comment
 │   ├── session-learnings-2026-05-20.md   # Session learnings (2026-05-20) — cover font sizes, key points on cover, navigation fixes
 │   ├── session-learnings-2026-05-21.md   # Session learnings (2026-05-21) — Emoji 2x, theme images, draft mode, multi-image upload
+│   ├── session-learnings-2026-05-22.md   # Session learnings (2026-05-22) — S6 hand-drawn style, keyword highlighting, 14-day auto-publish
 │   ├── feishu-channel-notification.md     # Feishu IM channel messaging for publish reports
 │   ├── github-workflow.md                # GitHub upload workflow
 │   ├── cover-style-s6-optimized.md       # Approved warm paper texture style with keyword highlighting
+│   ├── custom-cover-styling-technique.md # Advanced custom cover rendering (break default template limits)
 │   └── treehole-strategy.md              # Current strategy: 泛心理与情绪树洞
 
 **Python**: Use the Hermes agent venv Python for all scripts:
@@ -239,16 +241,9 @@ $PYTHON xhs_image_pipeline.py \
 - Theme images downloaded to `_kp_images/` subdir, converted to base64 for HTML embedding
 - See `references/session-learnings-2026-05-20.md` for full CSS details.
 
-**Xiaohongshu-style cover design (v4 — current)**:
-- Real photo backgrounds with gradient overlay (top/bottom dark, center transparent)
-- Accent color lines (22px) at top and bottom edges
-- Top title area: large bold title (130px) with accent stroke + multi-layer glow
-- Center key points area: each key point has a **128px circle** containing either a **theme image** (circle-cropped), **Emoji** (88px), or **number** (56px gradient badge)
-- Key point text: **88px** with accent stroke + 3-layer glow shadow for maximum contrast
-- Bottom CTA area: pill-shaped gradient button with glow shadow
-- CTA asks personal question (not yes/no) to encourage comments
-- 1080×1440 (3:4 portrait)
-- Per-key-point theme images searched via Bing, downloaded to `_kp_images/`, embedded as base64
+**Current cover design**: S6 Warm Hand-Drawn Style with keyword highlighting. For full specifications, see 'Cover Design Style Guide (2026-05-21)' below.
+
+**Note**: The pipeline can embed per-key-point theme images using `--kp-image-queries`, but these are small circular thumbnails (128px), not separate full covers.
 
 ### Step 3: Research Hashtags
 
@@ -300,12 +295,35 @@ The publish script (v10) will:
 
 ### Step 5: Track Performance
 
-```bash
-# View account overview and post metrics
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_analytics.py
-```
+### Auto-Publish Scheduling (14-day cycle)
 
-## 📊 Marketing & Growth
+For continuous daily publishing without manual intervention, set up a cron job that runs a daily publish script. See `references/batch-generation-workflow.md` for the complete setup.
+
+Key points:
+- The system supports up to 14 days of content (2 weeks) by organizing content in `~/treehole/week1/` and `week2/` subfolders.
+- A `current_day.txt` pointer tracks which day to publish next.
+- The cron script (`daily_publish.sh`) computes the week folder and day-in-week, then calls the appropriate `publish_day.py`.
+- After each successful publish, the day pointer increments (cycling 1-14).
+- **To start**: ensure Week 1 and Week 2 drafts exist, set `current_day.txt` to the next unpublished day, and enable the cron job.
+- **To extend** to more weeks: add `week3` folder with `publish_day.py` and modify the cron script's max day.
+
+This automation allows hands-free daily publishing for a fortnight, ideal for consistent content output.
+
+### Cron Job Notification
+After each daily publish, send a notification to your Feishu home channel reporting the result. Use the helper script `scripts/cron_notify.py` which wraps the Feishu IM API.
+
+**Prerequisites**:
+- `FEISHU_APP_ID`, `FEISHU_APP_SECRET`, `FEISHU_HOME_CHANNEL` set in `~/.hermes/.env`
+- See `references/feishu-channel-notification.md` for full API details and troubleshooting.
+
+**Usage example** in your cron script (`daily_publish.sh`):
+```bash
+# ... after successful publish
+MESSAGE="✅ Day ${current_day} published: ${title}\nNext (Day ${next_day}): ${next_title}"
+PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/cron_notify.py "$MESSAGE"
+```
+The script sends via Feishu `im/v1/messages` using `receive_id_type=chat_id`. It handles token acquisition and prints a confirmation with message ID on success.
 
 ### Analytics Dashboard
 
@@ -478,7 +496,7 @@ When the user pivots content strategy:
   * Hand-drawn title with keyword highlighting (bold, larger size, warm accent color)
   * Accent underline with gradient fill
   * Key points as cards with left accent border, slight rotation, and shadow
-  * Keyword highlighting within key points (accent color, larger size, subtle shadow)
+  * Keyword highlighting within key points — accent color, larger size, subtle shadow. To highlight keywords, wrap them in `**double asterisks**` or `<angle brackets>` in the key point text.
   * Scribble line and corner doodle decorations (✏️📝💭✨)
   * Brand mark in bottom right
 - **Always generate 3-6 style variants** before asking user to choose; render all via Playwright, upload to Feishu for review
