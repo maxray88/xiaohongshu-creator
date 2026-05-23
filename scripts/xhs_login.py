@@ -169,16 +169,32 @@ def main():
     with sync_playwright() as p:
         # Launch visible Chrome (not headless) so user can interact
         print("\n🚀 Opening Chrome browser...")
+
+        # Find Chrome binary
+        import shutil, subprocess, platform
+        chrome_paths = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            "/Applications/Chromium.app/Contents/MacOS/Chromium",
+            "/usr/bin/google-chrome",
+            "/usr/bin/chromium",
+        ]
+        chrome_bin = next((p for p in chrome_paths if os.path.exists(p)), None)
+        if not chrome_bin:
+            chrome_bin = shutil.which("google-chrome") or shutil.which("chromium")
+
+        launch_args = [
+            "--disable-blink-features=AutomationControlled",
+            "--no-sandbox",
+            "--disable-web-security",
+            "--disable-features=IsolateOrigins,site-per-process",
+            "--window-size=1280,900",
+            # Anti-detection: use realistic viewport + locale
+        ]
+
         browser = p.chromium.launch(
             headless=False,
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-web-security",
-                "--disable-features=IsolateOrigins,site-per-process",
-                "--window-size=1280,900",
-                "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            ],
+            executable_path=chrome_bin,
+            args=launch_args,
         )
 
         # Create a fresh context (no stored state)

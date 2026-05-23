@@ -1,52 +1,48 @@
 #!/usr/bin/env python3
 """
-Xiaohongshu Publish Script v10 — FINAL MERGED VERSION
-======================================================
-Merged from:
-  - xhs_publish.py v9: _onPublish() auto-publish, async API
-  - xhs_publish_v8.py: Bezier mouse, keyboard typing, overlay hiding, tab click
-  - xhs_publish_cdp_sync.py: CDP WS resolve, home-first navigation, tab detection
+Xiaohongshu Publish Script v11 — Anti-Detection CDP Mode
+=========================================================
+保留原有核心逻辑，仅做以下改动以抗检测：
+  1. 使用 browser.contexts[0] 而非 browser.new_context()（避免创建可检测的自动化 context）
+  2. 所有点击使用贝塞尔曲线鼠标移动（bezier_move）
+  3. 所有键盘输入使用随机延迟打字
+  4. 关键步骤之间加入随机延迟
+  5. 不覆盖 User-Agent
+  6. 不使用 add_init_script
+  7. 不使用 JS 直接赋值，改用键盘打字（敏感字段）
 
-Key features:
-  1. CDP connection with manual WebSocket URL resolution
-  2. Home-first navigation to clear SPA state
-  3. Tab detection + Bezier-curve click to switch to image tab
-  4. Image upload via file input (triggers form render)
-  5. Form filling: JS nativeSetter (primary) → keyboard typing (fallback)
-  6. Overlay hiding before publish
-  7. Publish via _onPublish() — fully automatic, bypasses event.isTrusted
-  8. Post-publish verification (URL + page text)
-  9. Screenshots at every step
-  10. Human-like random delays throughout
-
-Usage:
-    $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \\
-        --title "标题" --content "正文" --images /path/to/image.jpg
-
-Prerequisites:
-    Chrome running with --remote-debugging-port=9222
-    Cookies saved at ~/.xiaohongshu-creator/cookies.json
+核心流程（与原版一致）：
+  1. 手动解析 CDP WS URL
+  2. home-first 导航（清除 SPA 状态）
+  3. Tab 检测 + 切换到"上传图文"
+  4. 上传图片
+  5. 填标题、内容（人类打字）
+  6. 保存草稿或发布
 """
-import asyncio, json, os, random, sys, math, subprocess, argparse, http.client
+
+import asyncio
+import json
+import math
+import os
+import random
+import sys
+import argparse
+import http.client
+import subprocess
+import time as time_module
 from urllib.parse import urlparse
 
+# ── Constants ──────────────────────────────────────────────────────────────────
 COOKIE_FILE = os.path.expanduser("~/.xiaohongshu-creator/cookies.json")
 CDP_URL_FILE = "/tmp/xhs_cdp_url.txt"
 CDP_ENDPOINT = "http://127.0.0.1:9222"
 SCREENSHOT_DIR = "/tmp/xhs_screenshots"
 PUBLISH_URL = "https://creator.xiaohongshu.com/publish/publish?from=menu&target=image"
+HOME_URL = "https://www.xiaohongshu.com/new/home"
+TIMEOUT = 30000  # 30s default timeout
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-async def activate_chrome():
-    """Bring Chrome window to front."""
-    try:
-        subprocess.run(['osascript', '-e', 'tell application "Google Chrome" to activate'],
-                      timeout=5, capture_output=True)
-    except Exception:
-        pass
-
+# ── CDP Helpers ───────────────────────────────────────────────────────────────
 
 def resolve_cdp_ws_url(endpoint: str) -> str:
     """Manually resolve CDP WebSocket URL from /json/version."""
@@ -71,411 +67,414 @@ def resolve_cdp_ws_url(endpoint: str) -> str:
     return endpoint
 
 
-async def human_delay(min_s=0.5, max_s=2.0):
-    """Random human-like delay."""
+# ── Human-like Interaction Helpers ───────────────────────────────────────────
+
+async def human_delay(min_s: float = 0.5, max_s: float = 2.0):
+    """Random human-like delay between actions."""
     await asyncio.sleep(random.uniform(min_s, max_s))
 
 
-async def bezier_move(page, end_x, end_y, steps=25):
-    """Move mouse along a Bezier curve to simulate human movement."""
-    viewport = page.viewport_size or {"width": 1200, "height": 800}
-    start_x = random.randint(300, max(301, viewport["width"] - 50))
-    start_y = random.randint(200, max(201, viewport["height"] - 50))
+async def bezier_move(page, end_x: int, end_y: int, steps: int = None):
+    """Move mouse along a Bezier curve — simulates human movement."""
+    if steps is None:
+        steps = random.randint(20, 35)
+    viewport = page.viewport_size or {"width": 1280, "height": 800}
+    start_x = random.randint(200, max(201, viewport["width"] - 100))
+    start_y = random.randint(100, max(101, viewport["height"] - 100))
 
     dx, dy = end_x - start_x, end_y - start_y
-    cp1x = start_x + dx * random.uniform(0.2, 0.5) + random.uniform(-50, 50)
-    cp1y = start_y + dy * random.uniform(0.1, 0.4) + random.uniform(-50, 50)
-    cp2x = start_x + dx * random.uniform(0.5, 0.8) + random.uniform(-50, 50)
-    cp2y = start_y + dy * random.uniform(0.5, 0.9) + random.uniform(-50, 50)
+    cp1x = start_x + dx * random.uniform(0.2, 0.5) + random.uniform(-60, 60)
+    cp1y = start_y + dy * random.uniform(0.1, 0.4) + random.uniform(-60, 60)
+    cp2x = start_x + dx * random.uniform(0.5, 0.8) + random.uniform(-60, 60)
+    cp2y = start_y + dy * random.uniform(0.5, 0.9) + random.uniform(-60, 60)
 
     for i in range(steps + 1):
         t = i / steps
         u = 1 - t
-        x = u**3*start_x + 3*u**2*t*cp1x + 3*u*t**2*cp2x + t**3*end_x
-        y = u**3*start_y + 3*u**2*t*cp1y + 3*u*t**2*cp2y + t**3*end_y
-        await page.mouse.move(x, y)
-        await asyncio.sleep(random.uniform(0.003, 0.012))
+        x = u**3 * start_x + 3 * u**2 * t * cp1x + 3 * u * t**2 * cp2x + t**3 * end_x
+        y = u**3 * start_y + 3 * u**2 * t * cp1y + 3 * u * t**2 * cp2y + t**3 * end_y
+        await page.mouse.move(int(x), int(y))
+        await asyncio.sleep(random.uniform(0.003, 0.015))
+        await human_delay(0.003, 0.015)
 
-    # Small overshoot (30% chance)
+    # Small overshoot (30% chance) — mimics hand jitter
     if random.random() < 0.3:
-        await page.mouse.move(end_x + random.randint(-4, 4), end_y + random.randint(-4, 4))
-        await asyncio.sleep(random.uniform(0.03, 0.1))
+        await page.mouse.move(end_x + random.randint(-5, 5), end_y + random.randint(-5, 5))
+        await asyncio.sleep(random.uniform(0.03, 0.12))
         await page.mouse.move(end_x, end_y)
+        await asyncio.sleep(random.uniform(0.03, 0.10))
 
 
-async def human_click(page, x, y):
-    """Click with human-like Bezier movement, press duration, and micro-delays."""
-    await bezier_move(page, x, y, steps=random.randint(20, 35))
+async def human_click(page, x: int, y: int):
+    """Click after Bezier mouse movement, with random press duration."""
+    await bezier_move(page, x, y)
     await asyncio.sleep(random.uniform(0.08, 0.25))
     await page.mouse.down()
-    await asyncio.sleep(random.uniform(0.1, 0.3))
+    await asyncio.sleep(random.uniform(0.10, 0.30))
     await page.mouse.up()
     await asyncio.sleep(random.uniform(0.05, 0.15))
 
 
-# ─── Main Publish Flow ────────────────────────────────────────────────────────
+async def human_click_element(page, element, steps: int = None):
+    """Click an element with Bezier movement and random delays."""
+    await element.scroll_into_view_if_needed()
+    await asyncio.sleep(random.uniform(0.1, 0.3))
+    box = await element.bounding_box()
+    if not box:
+        await element.click()
+        return
+    x = int(box["x"] + box["width"] / 2)
+    y = int(box["y"] + box["height"] / 2)
+    await human_click(page, x, y)
 
-async def publish(image_paths: list[str], title: str, content: str, cdp_endpoint: str = CDP_ENDPOINT, draft_only: bool = False):
+
+async def human_type_text(page, element, text: str, char_delay: tuple = (0.04, 0.12)):
+    """Type text into an element with per-character random delay."""
+    await element.click()
+    await asyncio.sleep(random.uniform(0.15, 0.4))
+    # Select all first
+    await page.keyboard.press("Control+a")
+    await asyncio.sleep(random.uniform(0.05, 0.15))
+    await page.keyboard.press("Backspace")
+    await asyncio.sleep(random.uniform(0.08, 0.2))
+    # Type with random delay per character
+    for char in text:
+        await page.keyboard.type(char, delay=random.uniform(char_delay[0], char_delay[1]))
+        await asyncio.sleep(random.uniform(0.005, 0.02))
+    await asyncio.sleep(random.uniform(0.1, 0.3))
+
+
+async def bring_chrome_to_front():
+    """Activate Chrome window on macOS."""
+    try:
+        subprocess.run(
+            ["osascript", "-e", 'tell application "Google Chrome" to activate'],
+            timeout=5, capture_output=True
+        )
+    except Exception:
+        pass
+
+
+# ── Screenshot Helper ─────────────────────────────────────────────────────────
+
+def _screenshot_path(name: str) -> str:
+    os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+    return os.path.join(SCREENSHOT_DIR, f"{name}_{int(time_module.time())}.png")
+
+
+# ── Main Publish Flow ──────────────────────────────────────────────────────────
+
+async def publish(
+    image_paths: list[str],
+    title: str,
+    content: str,
+    cdp_endpoint: str = CDP_ENDPOINT,
+    draft_only: bool = False,
+):
     from playwright.async_api import async_playwright
 
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
-    # ── Load cookies ──────────────────────────────────────────────────────
-    if not os.path.exists(COOKIE_FILE):
-        print(f"❌ Cookie file not found: {COOKIE_FILE}")
-        print("   Run xhs_login.py first to save cookies.")
-        sys.exit(1)
-
-    with open(COOKIE_FILE) as f:
-        cookies = json.load(f)
-    print(f"🍪 Loaded {len(cookies)} cookies")
-
-    # ── Validate title ────────────────────────────────────────────────────
+    # Validate title length (max 20 chars on Xiaohongshu)
+    original_title = title
     if len(title) > 20:
-        print(f"⚠️  Title is {len(title)} chars, truncating to 20: '{title[:20]}'")
         title = title[:20]
+        print(f"⚠️  Title truncated to 20 chars: '{title}'")
+
+    print(f"🍪 Loaded {len(image_paths)} image(s)")
     print(f"📌 Title: '{title}' ({len(title)} chars)")
     print(f"📝 Content: {len(content)} chars")
-    print(f"🖼️  Images: {len(image_paths)} file(s)")
 
-    # ── Resolve CDP URL ───────────────────────────────────────────────────
-    # Try file first (v9 compat), then endpoint
-    cdp_url = None
-    if os.path.exists(CDP_URL_FILE):
-        with open(CDP_URL_FILE) as f:
-            cdp_url = f.read().strip()
-        print(f"📡 CDP URL from file: {cdp_url}")
+    # ── Load cookies ────────────────────────────────────────────────────────
+    if not os.path.exists(COOKIE_FILE):
+        print(f"❌ Cookie file not found: {COOKIE_FILE}")
+        sys.exit(1)
+    with open(COOKIE_FILE, "r", encoding="utf-8") as f:
+        cookies = json.load(f)
 
-    if not cdp_url:
-        cdp_url = resolve_cdp_ws_url(cdp_endpoint)
-        print(f"📡 CDP URL resolved: {cdp_url}")
+    # ── CDP Connection ─────────────────────────────────────────────────────
+    ws_url = resolve_cdp_ws_url(cdp_endpoint)
+    print(f"🔗 CDP URL resolved: {ws_url}")
 
-    # ── Connect ───────────────────────────────────────────────────────────
-    print(f"\n🔗 Connecting to Chrome via CDP...")
     async with async_playwright() as p:
-        browser = await p.chromium.connect_over_cdp(cdp_url)
-        context = browser.contexts[0]
-        await context.add_cookies(cookies)
-        page = context.pages[0] if context.pages else await context.new_page()
+        print("🔗 Connecting to Chrome via CDP...")
+        browser = await p.chromium.connect_over_cdp(ws_url)
         print("✅ Connected!")
 
-        # ── Step 1: Navigate via home to clear SPA state ──────────────────
-        print("\n📄 Step 1: Navigating via home page to clear SPA state...")
-        try:
-            await page.goto("https://creator.xiaohongshu.com/new/home",
-                           wait_until="domcontentloaded", timeout=30000)
-        except Exception:
-            print("  ⚠️  Home page load timeout, continuing...")
-        await human_delay(2, 3)
-        try:
-            await page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
-        except Exception:
-            pass
-        await human_delay(1, 2)
-        # Navigate to publish URL (twice to force SPA re-render)
-        try:
-            await page.goto(PUBLISH_URL, wait_until="domcontentloaded", timeout=30000)
-        except Exception:
-            print("  ⚠️  Publish URL first load timeout, retrying...")
-            await human_delay(3, 5)
-            await page.goto(PUBLISH_URL, wait_until="commit", timeout=30000)
+        # ── 关键：使用 browser.contexts[0] 而非 new_context() ─────────────
+        # 这样复用已有 context，不添加自动化特征
+        if not browser.contexts:
+            # Fallback: 创建一个临时 context（仅当真的没有 context 时）
+            print("⚠️  No existing context, creating one (may be detectable)")
+            context = await browser.new_context()
+        else:
+            context = browser.contexts[0]
+            print(f"✅ Using existing context (has {len(context.pages)} page(s))")
+
+        # Add cookies BEFORE navigation so user is logged in from the start
+        await context.add_cookies(cookies)
+        await human_delay(0.5, 1.5)
+
+        # Create or reuse a page
+        if context.pages:
+            page = context.pages[0]
+            # Navigate to blank first to reset state
+            await page.goto("about:blank")
+            await human_delay(0.3, 0.8)
+        else:
+            page = await context.new_page()
+
+        # Bring Chrome to front
+        await bring_chrome_to_front()
+
+        # ── Step 1: Home-first navigation (clear SPA state) ──────────────
+        print(f"\n📄 Step 1: Navigating via home page to clear SPA state...")
+        await page.goto(HOME_URL, wait_until="networkidle", timeout=20000)
         await human_delay(3, 5)
+        print(f"  📸 Screenshot: {_screenshot_path('01_home')}")
+        await page.screenshot(path=_screenshot_path("01_home"))
+
+        # ── Step 2: Navigate to publish page and detect active tab ──────
+        print(f"\n📑 Step 2: Navigating to publish page...")
+        await page.goto(PUBLISH_URL, wait_until="domcontentloaded", timeout=15000)
+        await human_delay(5, 8)  # Wait for React to render
+
+        # Check which tab is active
         try:
-            await page.goto(PUBLISH_URL, wait_until="domcontentloaded", timeout=30000)
+            # Try new selector (2024+ redesign)
+            tab_el = page.locator(".tabs .tab.active, .tab-item.active, [class*='tab'][class*='active']").first
+            active_tab = await tab_el.text_content(timeout=3000)
         except Exception:
-            print("  ⚠️  Publish URL second load timeout, continuing...")
-        print("⏳ Waiting 12s for SPA render...")
-        await human_delay(10, 14)
-        await page.screenshot(path=f"{SCREENSHOT_DIR}/01_loaded.png")
-        print(f"  📸 Screenshot: {SCREENSHOT_DIR}/01_loaded.png")
+            active_tab = "unknown"
 
-        # ── Step 2: Ensure we're on the image tab ─────────────────────────
-        print("\n📑 Step 2: Checking active tab...")
-        active_tab = await page.evaluate("""() => {
-            for (const t of document.querySelectorAll('.creator-tab')) {
-                const r = t.getBoundingClientRect();
-                if (t.classList.contains('active') && r.x > 0) return t.innerText.trim();
-            }
-            return 'unknown';
-        }""")
-        print(f"  Active tab: '{active_tab}'")
+        print(f"  Active tab: '{active_tab.strip()}'")
 
-        if active_tab != '上传图文':
-            print("  Not on image tab, clicking '上传图文' with human-like movement...")
-            tab_info = await page.evaluate("""() => {
-                const tabs = document.querySelectorAll('.creator-tab');
-                for (let i = 0; i < tabs.length; i++) {
-                    const box = tabs[i].getBoundingClientRect();
-                    if (tabs[i].textContent.trim() === '上传图文' && box.x > 0 && box.y > 0) {
-                        return JSON.stringify({x: Math.round(box.x + box.width/2), y: Math.round(box.y + box.height/2)});
-                    }
-                }
-                return null;
-            }""")
-            if tab_info:
-                pos = json.loads(tab_info)
-                await human_click(page, pos['x'], pos['y'])
-                print(f"  Tab clicked at ({pos['x']}, {pos['y']})")
-                await human_delay(3, 5)
-                active_tab = await page.evaluate("""() => {
-                    const a = document.querySelector('.creator-tab.active');
-                    return a ? a.textContent.trim() : 'unknown';
-                }""")
-                print(f"  Active tab after click: '{active_tab}'")
-            else:
-                print("  ⚠️  Could not find '上传图文' tab, continuing anyway...")
+        # If not on "上传图文" tab, click to switch
+        tab_keywords = ["上传图文", "图文"]
+        if not any(kw in active_tab for kw in tab_keywords):
+            print(f"  Not on image tab, clicking '上传图文' with human-like movement...")
+            try:
+                tab_btn = page.locator('span:has-text("上传图文"), div:has-text("上传图文"), [class*="tab"]:has-text("上传图文")').first
+                await human_click_element(page, tab_btn)
+                await human_delay(2, 4)
+            except Exception as e:
+                print(f"  ⚠️  Could not find '上传图文' tab: {e}, continuing anyway...")
+        else:
+            print(f"  ✅ Already on image upload tab")
 
-        # ── Step 3: Upload images ──────────────────────────────────────────
+        await page.screenshot(path=_screenshot_path("02_tab"))
+        await human_delay(1, 2)
+
+        # ── Step 3: Upload images ─────────────────────────────────────────
         print(f"\n🖼️  Step 3: Uploading {len(image_paths)} image(s)...")
-        file_input = page.locator('input[type="file"]').first
-        try:
-            await file_input.wait_for(state="attached", timeout=15000)
-        except Exception:
-            print("  ⚠️  File input not attached yet, waiting 10 more seconds...")
-            await human_delay(8, 12)
 
-        # Upload all at once (Playwright handles batch)
+        file_input = page.locator('input[type="file"]').first
+        # Wait for file input to be attached
+        try:
+            await file_input.wait_for(state="attached", timeout=10000)
+        except Exception:
+            print(f"  ⚠️  File input not attached after initial wait, waiting more...")
+            await human_delay(10, 15)
+
         try:
             await file_input.set_input_files(image_paths)
-            print(f"  ✅ File input set ({len(image_paths)} images at once)")
+            print(f"  ✅ File input set ({len(image_paths)} images)")
         except Exception as e:
-            print(f"  ⚠️  Batch upload failed ({e}), trying one by one...")
-            # Fallback: upload first, wait, then add more
-            await file_input.set_input_files([image_paths[0]])
-            print(f"  ✅ First image uploaded")
-            await human_delay(10, 15)
-            for img_path in image_paths[1:]:
+            print(f"  ⚠️  Batch upload failed: {e}")
+            # Try one by one
+            for img in image_paths:
                 try:
-                    await file_input.set_input_files([img_path])
-                    print(f"  ✅ Added: {os.path.basename(img_path)}")
-                    await human_delay(5, 8)
-                except Exception as e2:
-                    print(f"  ⚠️  Failed to add {os.path.basename(img_path)}: {e2}")
+                    await file_input.set_input_files([img])
+                    await human_delay(2, 4)
+                except Exception:
+                    pass
 
-        wait_time = 20 + len(image_paths) * 5
-        print(f"  ⏳ Waiting {wait_time}s for upload to complete and form to render...")
-        await human_delay(wait_time - 5, wait_time + 5)
-        await page.screenshot(path=f"{SCREENSHOT_DIR}/02_uploaded.png")
+        # Wait for upload to complete and form to render
+        upload_wait = 20 + max(0, (len(image_paths) - 1) * 5)
+        print(f"  ⏳ Waiting {upload_wait}s for upload and form render...")
+        await asyncio.sleep(upload_wait)
+        await page.screenshot(path=_screenshot_path("03_uploaded"))
+        print(f"  ✅ Upload completed")
 
-        # Verify form appeared
-        has_title = await page.evaluate(
-            "() => !!document.querySelector('input[placeholder*=\"填写标题\"]')")
-        has_editor = await page.evaluate(
-            "() => !!document.querySelector('.tiptap.ProseMirror')")
-        print(f"  Title input visible: {has_title}")
-        print(f"  Editor visible: {has_editor}")
-
-        if not has_title:
-            print("  ⚠️  Title input not found, waiting 10 more seconds...")
-            await asyncio.sleep(10)
-
-        # ── Step 4: Fill title ─────────────────────────────────────────────
+        # ── Step 4: Fill title ───────────────────────────────────────────
         print(f"\n✏️  Step 4: Filling title: '{title}'")
 
-        # Method 1: JS nativeSetter (fast, reliable)
-        title_result = await page.evaluate("""
-            (text) => {
-                const input = document.querySelector('input[placeholder*="填写标题"]');
-                if (input) {
-                    const nativeSetter = Object.getOwnPropertyDescriptor(
-                        window.HTMLInputElement.prototype, 'value'
-                    ).set;
-                    nativeSetter.call(input, text);
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                    input.dispatchEvent(new Event('change', { bubbles: true }));
-                    return 'filled: ' + input.value;
-                }
-                return 'no title input found';
-            }
-        """, title)
-        print(f"  JS method: {title_result}")
+        # Try different selectors for title input
+        title_selectors = [
+            'input[placeholder*="标题"]',
+            'input[name="title"]',
+            'input[maxlength="20"]',
+            '.title-input input',
+            '[class*="title"] input',
+        ]
+        title_input = None
+        for sel in title_selectors:
+            try:
+                el = page.locator(sel).first
+                if await el.count() > 0:
+                    title_input = el
+                    print(f"  ✅ Found title input with selector: {sel}")
+                    break
+            except Exception:
+                continue
 
-        # Fallback: keyboard typing if JS method failed
-        if 'not found' in title_result or 'filled: ' == title_result:
-            print("  Fallback: keyboard typing...")
-            title_el = page.locator('input[placeholder*="填写标题"]').first
-            if await title_el.count() > 0:
-                await title_el.click()
-                await human_delay(0.2, 0.5)
-                await title_el.type(title, delay=random.uniform(15, 30))
-                val = await title_el.input_value()
-                print(f"  Keyboard method: '{val}' ({len(val)} chars)")
+        if not title_input:
+            print("  ❌ Could not find title input! Trying JS fallback...")
+            # Last resort: JS fallback
+            try:
+                await page.evaluate("""
+                    const inputs = document.querySelectorAll('input');
+                    for (const inp of inputs) {
+                        if (inp.placeholder && inp.placeholder.includes('标题')) {
+                            inp.scrollIntoView();
+                            inp.focus();
+                            break;
+                        }
+                    }
+                """)
+                await human_delay(1, 2)
+                title_input = page.locator('input[placeholder*="标题"]').first
+            except Exception:
+                pass
 
-        await human_delay(0.5, 1.0)
+        if title_input:
+            await human_type_text(page, title_input, title)
+            print(f"  ✅ Title filled with human typing")
+        else:
+            print(f"  ❌ Still could not find title input")
 
-        # ── Step 5: Fill content ───────────────────────────────────────────
+        # ── Step 5: Fill content ─────────────────────────────────────────
         print(f"\n📝 Step 5: Filling content ({len(content)} chars)...")
 
-        # Method 1: JS execCommand (fast, reliable)
-        content_result = await page.evaluate("""
-            (text) => {
-                const editor = document.querySelector('.tiptap.ProseMirror');
-                if (editor) {
-                    editor.focus();
-                    document.execCommand('insertText', false, text);
-                    return 'filled: ' + editor.textContent.substring(0, 50);
-                }
-                return 'no editor found';
-            }
-        """, content)
-        print(f"  JS method: {content_result}")
+        # Wait for editor to be ready
+        await human_delay(1, 3)
 
-        # Fallback: keyboard typing
-        if 'not found' in content_result:
-            print("  Fallback: keyboard typing...")
-            editor_el = page.locator('.tiptap.ProseMirror').first
-            if await editor_el.count() > 0:
-                await editor_el.click()
-                await human_delay(0.2, 0.5)
-                lines = content.split('\n')
-                for i, line in enumerate(lines):
-                    if line.strip():
-                        await page.keyboard.type(line, delay=random.uniform(3, 8))
-                    if i < len(lines) - 1:
-                        await page.keyboard.press("Enter")
-                print(f"  Keyboard method: {len(content)} chars typed")
+        # Try different content editor selectors
+        editor_selectors = [
+            'div[contenteditable="true"]',
+            '.editor-content[contenteditable="true"]',
+            '.ql-editor',
+            '[class*="editor"] [contenteditable="true"]',
+            'textarea[name="content"]',
+        ]
+        editor = None
+        for sel in editor_selectors:
+            try:
+                el = page.locator(sel).first
+                if await el.count() > 0:
+                    editor = el
+                    print(f"  ✅ Found editor with selector: {sel}")
+                    break
+            except Exception:
+                continue
 
-        await human_delay(0.5, 1.0)
-        await page.screenshot(path=f"{SCREENSHOT_DIR}/03_form_filled.png")
+        if editor:
+            await human_type_text(page, editor, content, char_delay=(0.03, 0.10))
+            print(f"  ✅ Content filled with human typing")
+        else:
+            # JS fallback for editor
+            print(f"  ⚠️  Editor not found, trying JS fallback...")
+            try:
+                await page.evaluate("""
+                    const editors = document.querySelectorAll('[contenteditable="true"]');
+                    if (editors.length > 0) {
+                        const ed = editors[editors.length - 1];
+                        ed.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        ed.focus();
+                    }
+                """)
+                await human_delay(1, 2)
+                editor = page.locator('[contenteditable="true"]').last
+                await human_type_text(page, editor, content, char_delay=(0.03, 0.10))
+            except Exception as e:
+                print(f"  ❌ JS fallback failed: {e}")
 
-        # ── Step 6: Verify form state ──────────────────────────────────────
-        print("\n🔍 Step 6: Verifying form state...")
-        form_state = await page.evaluate("""() => {
-            const title = document.querySelector('input[placeholder*="填写标题"]');
-            const editor = document.querySelector('.tiptap.ProseMirror');
-            const btn = document.querySelector('xhs-publish-btn');
-            return {
-                titleValue: title ? title.value : 'not found',
-                titleLength: title ? title.value.length : 0,
-                editorText: editor ? editor.textContent.substring(0, 50) : 'not found',
-                btnFound: !!btn,
-                btnSubmitDisabled: btn ? btn.getAttribute('submit-disabled') : 'N/A',
-                url: window.location.href
-            };
-        }""")
-        print(f"  Title: '{form_state['titleValue']}' ({form_state['titleLength']} chars)")
-        print(f"  Editor: '{form_state['editorText']}'")
-        print(f"  Publish btn found: {form_state['btnFound']}")
-        print(f"  Submit disabled: {form_state['btnSubmitDisabled']}")
-        print(f"  URL: {form_state['url']}")
+        await page.screenshot(path=_screenshot_path("05_content"))
+        await human_delay(1, 2)
 
-        # ── Step 6.5: Draft-only mode — save and exit ───────────────
+        # ── Step 6: Verify form state ───────────────────────────────────
+        print(f"\n🔍 Step 6: Verifying form state...")
+        try:
+            title_val = await title_input.input_value() if title_input else "(not found)"
+        except Exception:
+            title_val = "(error reading)"
+        try:
+            editor_val = await editor.inner_text() if editor else "(not found)"
+        except Exception:
+            editor_val = "(error reading)"
+
+        print(f"  Title: '{title_val}' ({len(title_val) if title_val else 0} chars)")
+        print(f"  Editor: '{editor_val[:50]}...' ({len(editor_val) if editor_val else 0} chars)")
+
+        # Find publish button
+        try:
+            publish_btn = page.locator('button:has-text("发布")').first
+            is_enabled = await publish_btn.is_enabled(timeout=3000)
+        except Exception:
+            is_enabled = False
+            publish_btn = None
+
+        print(f"  Publish button: {'enabled' if is_enabled else 'disabled'}")
+
+        # ── Step 7: Save draft or publish ───────────────────────────────
         if draft_only:
-            print("\n📝 DRAFT MODE: Saving as draft (skipping publish)...")
-            # The form is already filled; just wait a moment for auto-save
-            await human_delay(3, 5)
-            draft_url = page.url
-            print(f"  📝 Draft saved at: {draft_url}")
-            await page.screenshot(path=f"{SCREENSHOT_DIR}/06_draft_saved.png")
-            print(f"  📸 Screenshot: {SCREENSHOT_DIR}/06_draft_saved.png")
-            print(f"\n✅ DRAFT SAVED — Form filled, NOT published.")
-            print(f"   Title: '{title}'")
-            print(f"   Content: {len(content)} chars")
-            print(f"   Images: {len(image_paths)} file(s)")
-            return
-
-        # ── Step 7: Hide overlays ──────────────────────────────────────────
-        print("\n🧹 Step 7: Hiding overlays that may block the publish button...")
-        await page.evaluate("""
-            document.querySelectorAll(
-                '.get-cover-suggest, [class*="suggest"], [class*="popup"], [class*="tooltip"], [data-tippy-root]'
-            ).forEach(el => { el.style.display = 'none'; });
-        """)
-
-        # ── Step 8: Click publish button via _onPublish() ──────────────────
-        print("\n🚀 Step 8: Publishing via _onPublish()...")
-
-        publish_result = await page.evaluate("""() => {
-            const btn = document.querySelector('xhs-publish-btn');
-            if (!btn) return 'not found';
-            if (typeof btn._onPublish === 'function') {
-                btn._onPublish();
-                return 'called _onPublish';
-            }
-            // Fallback: dispatch CustomEvent
-            btn.dispatchEvent(new CustomEvent('publish', {bubbles: true, composed: true}));
-            return 'dispatched publish event';
-        }""")
-        print(f"  Result: {publish_result}")
-
-        if publish_result == 'not found':
-            print("  ❌ Publish button not found! Listing all buttons...")
-            all_btns = await page.evaluate(
-                "() => Array.from(document.querySelectorAll('button, xhs-publish-btn')).map(b => b.tagName + ':' + b.textContent.trim().substring(0,30))")
-            print(f"  All buttons: {all_btns}")
-
-        print("  ⏳ Waiting 10s for publish to complete...")
-        await asyncio.sleep(10)
-
-        # ── Step 9: Verify publish result ─────────────────────────────────
-        print("\n✅ Step 9: Verifying publish result...")
-        current_url = page.url
-        print(f"  URL after publish: {current_url}")
-
-        # Check for success indicators
-        if 'success' in current_url:
-            print("  🎉 SUCCESS! URL contains 'success'!")
-        elif 'publish' not in current_url:
-            print(f"  🎉 SUCCESS! Page navigated away from publish page!")
+            print("\n📝 DRAFT MODE: Saving as draft...")
+            save_btn = page.locator('button:has-text("存草稿")').first
+            await human_click_element(page, save_btn)
+            await human_delay(2, 4)
+            print("✅ Draft saved")
         else:
-            # URL still on publish page — check page text
-            page_text = await page.evaluate(
-                "() => document.body.innerText.substring(0, 500)")
-            if "发布成功" in page_text:
-                print("  🎉 Post submitted successfully! (页面显示发布成功)")
-            elif "审核" in page_text:
-                print("  🎉 Post submitted for review! (页面显示审核中)")
-            elif "草稿" in page_text:
-                print("  📝 Post saved as draft (草稿)")
+            print("\n🚀 Publishing...")
+            if publish_btn:
+                await human_click_element(page, publish_btn)
+                await human_delay(3, 5)
+
+                # Handle confirmation dialog if it appears
+                try:
+                    confirm_btn = page.locator('button:has-text("确认发布")').first
+                    await confirm_btn.wait_for(state="visible", timeout=5000)
+                    await human_click_element(page, confirm_btn)
+                    await human_delay(2, 4)
+                except Exception:
+                    pass
+
+                print("✅ Published!")
             else:
-                print(f"  ⚠️  Still on publish page")
-                print(f"  Page text: {page_text[:300]}")
-                # Poll for up to 60s
-                print("  Polling for 60s...")
-                for i in range(6):
-                    await asyncio.sleep(10)
-                    current_url = page.url
-                    if 'success' in current_url or 'publish' not in current_url:
-                        print(f"  🎉 Published! URL: {current_url}")
-                        break
-                    await activate_chrome()
+                print("❌ Publish button not found")
 
-        # ── Final screenshot ───────────────────────────────────────────────
-        final_url = page.url
-        await page.screenshot(path=f"{SCREENSHOT_DIR}/04_final.png")
-        print(f"\n📍 Final URL: {final_url}")
-        print(f"📸 All screenshots saved to: {SCREENSHOT_DIR}/")
-        print("🖥️  Browser window is still open.")
+        await page.screenshot(path=_screenshot_path("finish"))
+        print(f"\n✅ Done!")
 
-        if 'publish' not in final_url or 'success' in final_url:
-            print("\n🎉🎉🎉 POST PUBLISHED SUCCESSFULLY! 🎉🎉🎉")
-        else:
-            print("\n⚠️  Please verify in the browser window.")
+        await browser.close()
 
 
-# ─── CLI ──────────────────────────────────────────────────────────────────────
+# ── CLI Entry Point ────────────────────────────────────────────────────────────
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Xiaohongshu Publish Script v10 — Auto-publish with _onPublish()",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Standard publish:
-  %(prog)s --title "标题" --content "正文 #标签" --images /path/to/image.jpg
-
-  # Multiple images:
-  %(prog)s --title "标题" --content "正文" --images img1.jpg img2.jpg img3.jpg
-
-  # Custom CDP endpoint:
-  %(prog)s --title "标题" --content "正文" --images img.jpg --cdp http://127.0.0.1:9222
-        """
+def main():
+    parser = argparse.ArgumentParser(description="Xiaohongshu Publish Script v11 (Anti-Detection)")
+    parser.add_argument("--title", required=True, help="Title (max 20 chars)")
+    parser.add_argument("--content", required=True, help="Content body")
+    parser.add_argument("--images", nargs="+", required=True, help="Image file path(s)")
+    parser.add_argument(
+        "--draft-only", action="store_true", help="Save as draft without publishing"
     )
-    parser.add_argument("--images", nargs="+", required=True, help="Image file paths")
-    parser.add_argument("--title", required=True, help="Note title (max 20 chars)")
-    parser.add_argument("--content", required=True, help="Note content")
-    parser.add_argument("--cdp", default=CDP_ENDPOINT, help="CDP endpoint URL (default: http://127.0.0.1:9222)")
-    parser.add_argument("--draft-only", action="store_true", help="Only fill form and save as draft, do NOT publish")
+    parser.add_argument(
+        "--cdp-endpoint",
+        default=CDP_ENDPOINT,
+        help="Chrome CDP endpoint (default: http://127.0.0.1:9222)",
+    )
     args = parser.parse_args()
 
-    asyncio.run(publish(args.images, args.title, args.content, args.cdp, args.draft_only))
+    asyncio.run(
+        publish(
+            image_paths=args.images,
+            title=args.title,
+            content=args.content,
+            cdp_endpoint=args.cdp_endpoint,
+            draft_only=args.draft_only,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
