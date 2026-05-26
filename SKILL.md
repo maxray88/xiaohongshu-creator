@@ -309,53 +309,16 @@ The publish script (v10) will:
 
 ### Step 5: Track Performance
 
-### Auto-Publish Scheduling (14-day cycle)
+### ⚠️ CRITICAL: Draft-Only Mode (User Preference)
+**User explicitly requested: no automatic publishing.** XHS can detect automated publishing behavior and may penalize the account.
 
-For continuous daily publishing without manual intervention, set up a cron job that runs a daily publish script. See `references/batch-generation-workflow.md` for the complete setup.
+- `xhs_publish.py` defaults to **draft-only mode** — fills form and saves as draft, does NOT click publish
+- To actually publish: must explicitly pass `--publish` flag
+- All cron jobs for auto-publishing have been removed
+- **Workflow**: Agent fills form → saves as draft → user manually reviews in creator dashboard → user manually clicks publish
 
-Key points:
-- The system supports up to 14 days of content (2 weeks) by organizing content in `~/treehole/week1/` and `week2/` subfolders.
-- A `current_day.txt` pointer tracks which day to publish next.
-- The cron script (`daily_publish.sh`) computes the week folder and day-in-week, then calls the appropriate `publish_day.py`.
-- After each successful publish, the day pointer increments (cycling 1-14).
-- **To start**: ensure Week 1 and Week 2 drafts exist, set `current_day.txt` to the next unpublished day, and enable the cron job.
-- **To extend** to more weeks: add `week3` folder with `publish_day.py` and modify the cron script's max day.
-
-### ⚠️ CRITICAL: Session Validation Before Cron Publish
-**Always validate session before attempting publish in cron jobs.**
-
-XHS `galaxy_creator_session_id` can be revoked server-side even with locally valid cookies. When this happens:
-- `creator.xiaohongshu.com` redirects to `/login` with `redirectReason=401`
-- `xhs_login.py --manual` will timeout (requires user to scan QR/enter SMS — impossible in cron)
-- Form may show "Publish button: disabled" even when filled
-
-**Pre-flight validation** (add to cron script before publish step):
-```bash
-# Quick session check
-$PYTHON -c "
-import asyncio
-from playwright.async_api import async_playwright
-
-async def check():
-    browser = await async_playwright().chromium.connect_over_cdp('ws://127.0.0.1:9222/devtools/browser/...')
-    page = browser.contexts[0].pages[-1]
-    await page.goto('https://creator.xiaohongshu.com/', wait_until='domcontentloaded', timeout=15000)
-    if 'login' in page.url:
-        print('SESSION_INVALID')
-    else:
-        print('SESSION_OK')
-
-asyncio.run(check())
-"
-```
-
-If `SESSION_INVALID`: 
-1. **Try cookie injection recovery** (before giving up): Connect via CDP, inject cookies from `~/.xiaohongshu-creator/cookies.json` with `context.add_cookies()`, then re-navigate. This works when cookies haven't expired but the session was server-side invalidated. See `references/session-learnings-2026-05-26.md`.
-2. If cookie injection fails or cookies are expired: send Feishu alert, skip publish, do NOT call `xhs_login.py --manual`.
-
-See `references/session-learnings-2026-05-25.md` for full failure analysis.
-
-This automation allows hands-free daily publishing for a fortnight, ideal for consistent content output.
+### ~~Auto-Publish Scheduling (14-day cycle)~~ REMOVED
+All auto-publish cron jobs have been deleted. Publishing is now manual-only.
 
 ### Cron Job Notification
 After each daily publish, send a notification to your Feishu home channel reporting the result. Use the helper script `scripts/cron_notify.py` which wraps the Feishu IM API.
@@ -676,6 +639,8 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles (88px font, 128px circle) or `--kp-image-queries` for per-key-point theme images (128px circle-cropped). |
 | Cover emoji circles too small | User preference: emoji circles must be **128px** (2x from 64px) with **88px** font. Number circles also 128px with 56px font. |
 | `xhs_auto_publish.py` cover queries don't match topic | Known issue: `--topic` flows to content generation but cover image search queries may still use hardcoded values. Manually verify cover relevance or use `xhs_image_pipeline.py` directly with correct `--query`. |
+| **Script fills form but doesn't publish** | Expected behavior — `xhs_publish.py` defaults to draft-only. Form is auto-saved as draft by XHS. To actually publish: add `--publish` flag to CLI, or call `publish()` with `publish_mode=True`. |
+| **Session invalid — redirected to login** | When navigating to `creator.xiaohongshu.com` and redirected to `/login` with `redirectReason=401`: session cookies are server-side invalidated. Try cookie injection recovery first: connect via CDP, `context.add_cookies(cookies)`, re-navigate. If that fails, run `xhs_login.py --manual`. See `references/session-learnings-2026-05-25.md`. |
 | Long content via CLI triggers security scan timeout | Content >~200 chars or with many emojis in CLI args gets blocked. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`. |
 | Multi-image upload times out | Uploading 6+ images can exceed Playwright's default timeout. Script auto-scales wait time (20s + 5s/image) and falls back to one-by-one upload if batch fails. |
 | `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
