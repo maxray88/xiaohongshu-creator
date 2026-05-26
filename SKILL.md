@@ -52,13 +52,21 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── session-learnings-2026-05-20.md   # Session learnings (2026-05-20) — cover font sizes, key points on cover, navigation fixes
 │   ├── session-learnings-2026-05-21.md   # Session learnings (2026-05-21) — Emoji 2x, theme images, draft mode, multi-image upload
 │   ├── session-learnings-2026-05-22.md   # Session learnings (2026-05-22) — S6 hand-drawn style, keyword highlighting, 14-day auto-publish
+│   ├── session-learnings-2026-05-23.md   # Session learnings (2026-05-23) — session invalidation deep dive
+│   ├── session-learnings-2026-05-24.md   # Session learnings (2026-05-24) — weekly review cron, empty analytics diagnostics
+│   ├── session-learnings-2026-05-25.md   # Session learnings (2026-05-25) — cron session validation, title truncation, draft save failure
 │   ├── feishu-channel-notification.md     # Feishu IM channel messaging for publish reports
 │   ├── github-workflow.md                # GitHub upload workflow
 │   ├── cover-style-s6-optimized.md       # Approved warm paper texture style with keyword highlighting
 │   ├── custom-cover-styling-technique.md # Advanced custom cover rendering (break default template limits)
 │   └── treehole-strategy.md              # Current strategy: 泛心理与情绪树洞
 
-**Python**: Use the Hermes agent venv Python for all scripts:
+**Anti-Detection Approach (do NOT rewrite from scratch):**
+When adding anti-detection to Xiaohongshu scripts:
+1. **Keep the existing proven logic** — original scripts have correct patterns (home-first navigation, tab detection, JS nativeSetter filling, `_onPublish()` trigger). These took many sessions to stabilize.
+2. **Inject anti-detection at key points only**: replace `page.click()` with Bezier mouse movement + human-like press, replace direct `page.type()` with per-character random delay, add random delays between critical steps, use `browser.contexts[0]` instead of `new_context()`.
+3. **Do NOT**: create new browser_controller abstractions that launch fresh Chrome, override User-Agent, use `add_init_script()`, or replace the entire script structure.
+4. **Do NOT use Python's HTTP stack for navigation** when in sandboxed environments — Chrome's network differs. Use `page.evaluate("window.location.href = '...'")` for CDP-connected pages instead of `page.goto()` from Python.
 ```bash
 PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
 ```
@@ -262,12 +270,18 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
   --content "正文内容 #标签" \
   --images /path/to/image1.jpg /path/to/image2.jpg
 
-# Save as draft only (do NOT publish)
+# Save as draft only (default safe mode — no --publish flag)
 $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
   --title "标题" \
   --content "正文内容" \
-  --images /path/to/image1.jpg \
-  --draft-only
+  --images /path/to/image1.jpg
+
+# Actually publish (must explicitly pass --publish)
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
+  --title "标题" \
+  --content "正文内容 #标签" \
+  --images /path/to/image1.jpg /path/to/image2.jpg \
+  --publish
 ```
 
 The publish script (v10) will:
@@ -280,7 +294,7 @@ The publish script (v10) will:
 7. **Fill title** — JS nativeSetter (primary) → keyboard typing (fallback)
 8. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
 9. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
-10. **Draft-only mode** — if `--draft-only` flag set, skip publish entirely; form is auto-saved as draft by XHS
+10. **Draft by default** — script saves as draft unless `--publish` flag is explicitly passed
 11. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
 12. **Verify result** — checks URL + page text for 发布成功/审核/草稿
 13. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
@@ -291,7 +305,7 @@ The publish script (v10) will:
 
 > 📝 **Note**: Old publish scripts (`xhs_publish_v8.py`, `xhs_publish_cdp_sync.py`) have been removed. `xhs_publish.py` v10 is the single authoritative publish script.
 
-> ⚠️ **Long content via CLI**: Content >~200 chars or with many emojis in CLI args triggers security scan timeout. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`.
+> ⚠️ **Long content via CLI**: Content >~200 chars or with many emojis in CLI args triggers security scan timeout. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp))` for draft, or add `publish_mode=True` to actually publish.
 
 ### Step 5: Track Performance
 
@@ -306,6 +320,40 @@ Key points:
 - After each successful publish, the day pointer increments (cycling 1-14).
 - **To start**: ensure Week 1 and Week 2 drafts exist, set `current_day.txt` to the next unpublished day, and enable the cron job.
 - **To extend** to more weeks: add `week3` folder with `publish_day.py` and modify the cron script's max day.
+
+### ⚠️ CRITICAL: Session Validation Before Cron Publish
+**Always validate session before attempting publish in cron jobs.**
+
+XHS `galaxy_creator_session_id` can be revoked server-side even with locally valid cookies. When this happens:
+- `creator.xiaohongshu.com` redirects to `/login` with `redirectReason=401`
+- `xhs_login.py --manual` will timeout (requires user to scan QR/enter SMS — impossible in cron)
+- Form may show "Publish button: disabled" even when filled
+
+**Pre-flight validation** (add to cron script before publish step):
+```bash
+# Quick session check
+$PYTHON -c "
+import asyncio
+from playwright.async_api import async_playwright
+
+async def check():
+    browser = await async_playwright().chromium.connect_over_cdp('ws://127.0.0.1:9222/devtools/browser/...')
+    page = browser.contexts[0].pages[-1]
+    await page.goto('https://creator.xiaohongshu.com/', wait_until='domcontentloaded', timeout=15000)
+    if 'login' in page.url:
+        print('SESSION_INVALID')
+    else:
+        print('SESSION_OK')
+
+asyncio.run(check())
+"
+```
+
+If `SESSION_INVALID`: 
+1. **Try cookie injection recovery** (before giving up): Connect via CDP, inject cookies from `~/.xiaohongshu-creator/cookies.json` with `context.add_cookies()`, then re-navigate. This works when cookies haven't expired but the session was server-side invalidated. See `references/session-learnings-2026-05-26.md`.
+2. If cookie injection fails or cookies are expired: send Feishu alert, skip publish, do NOT call `xhs_login.py --manual`.
+
+See `references/session-learnings-2026-05-25.md` for full failure analysis.
 
 This automation allows hands-free daily publishing for a fortnight, ideal for consistent content output.
 
@@ -349,6 +397,12 @@ $PYTHON xhs_analytics.py --output json
 - Per-note: title, date, exposure, likes, comments, saves, shares
 
 > ⚠️ **Analytics column order**: The note list page columns are: **曝光, 评论, 点赞, 收藏, 分享** (NOT 点赞 before 评论). If likes/comments data looks swapped, check `parse_note_data()` in xhs_analytics.py. See `references/session-learnings-2026-05-18-p2.md`.
+
+**⚠️ Empty analytics diagnostics**: When `xhs_analytics.py` returns `{"notes": []}` or `{"dashboard": {}}`:
+1. **Check `~/.xiaohongshu-creator/published_topics.txt`** — if entries exist there but analytics shows no data, session is likely server-side invalidated
+2. **Cross-validate with Chrome CDP** — if Chrome is running, `playwright.chromium.connect_over_cdp("http://127.0.0.1:9222")` can verify live session by navigating to creator.xiaohongshu.com and checking for login redirect
+3. **Cookie age matters** — cookies file dated >7 days ago is likely stale even if session cookies are present; `acw_tc` refresh alone cannot fix `galaxy_creator_session_id` invalidation
+4. **Empty + no cookies file** = fresh account / no posts published yet (not a session issue)
 
 ### Hashtag Research
 
@@ -536,6 +590,8 @@ else:
 "
 ```
 
+**Cross-check with `~/.xiaohongshu-creator/published_topics.txt`** — if this file has entries but analytics returns empty, the session has been server-side invalidated even if cookies are locally valid. Run `xhs_login.py --manual` to re-authenticate.
+
 ### Clear session
 ```bash
 rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
@@ -548,6 +604,7 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `playwright not installed` | `$PYTHON -m pip install playwright && $PYTHON -m playwright install chromium` |
 | `Cookies file not found` | Run `xhs_login.py` first |
 | `Session expired` | Re-run `xhs_login.py` to get fresh cookies |
+| `Cookies not expired but still redirected to login` | **Server-side session invalidation**: session cookies (`galaxy_creator_session_id`, `access-token-creator`) can be locally valid but server-invalidated. Key indicators: `redirectReason=401` in URL, page shows login form. `acw_tc` refresh alone does NOT fix this — must re-login. Debug: connect via CDP and check page URL/content. See `references/session-learnings-2026-05-23.md`. |
 | `Page.goto timeout` | The creator platform is slow; the script uses `wait_until="commit"` to handle this |
 | `Could not find title/content input` | Page may not have fully loaded; check the browser window manually |
 | `Could not find publish button` | Button may have a different label; check the DOM and update selectors |
@@ -577,6 +634,44 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `arguments` not defined in page.evaluate | Python Playwright `page.evaluate("expr")` does NOT support `arguments[0]` syntax. Use `page.evaluate("expr", arg)` second parameter instead. See `references/session-learnings-2026-05-19.md`. |
 | `#content-textarea` null after navigation | Note page still loading after SPA navigation. Always use `page.wait_for_selector('#content-textarea', timeout=10000)` before interacting. See `references/session-learnings-2026-05-19.md`. |
 | `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
+| `Cookies not expired but redirected to login` | Server-side session invalidation (`redirectReason=401`). Must re-run `xhs_login.py`. See `references/session-learnings-2026-05-23.md`. |
+| `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
+| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. This re-validates the session server-side WITHOUT manual login. See `references/session-learnings-2026-05-26.md`. |
+| **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
+| **Publish button not found but form filled** | `xhs-publish-btn` innerHTML is empty (closed shadow DOM). Call `_onPublish()` directly via `page.evaluate()`: `document.querySelector('xhs-publish-btn')._onPublish()`. See `references/session-learnings-2026-05-26.md`. |
+| Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
+| **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
+| `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
+| `ECONNREFUSED 127.0.0.1:9222` on publish | Chrome debug port not running. Start with `--remote-debugging-port=9222`. Check: `lsof -i :9222`. |
+
+## Anti-Detection Technical Guidelines
+
+**Core principle**: When adding anti-detection, preserve proven script logic and inject human-like behaviors only at interaction points. Do NOT rewrite scripts from scratch.
+
+### What TO Do
+- Use `browser.contexts[0]` instead of `browser.new_context()` — reuses real Chrome context, less detectable
+- Replace `page.click()` with Bezier-curve human mouse movement + random press duration
+- Replace `page.type()` with per-character random delay typing
+- Add random delays (0.5–2s) between critical steps
+- Navigate using `page.evaluate("window.location.href = '...'")` when CDP-connected (uses Chrome's network, not Python's)
+- Use `wait_until="domcontentloaded"` not `"commit"` for XHS pages
+
+### What NOT To Do
+- Do NOT override User-Agent
+- Do NOT use `add_init_script()` — injects detectable JS
+- Do NOT create fresh `browser.new_context()` — creates automation-labeled context
+- Do NOT launch a new Chrome instance — connect to existing Chrome via CDP
+- Do NOT rewrite script structure from scratch — inject into proven logic
+
+### Cookie/Session Troubleshooting
+- `acw_tc` expires ~20min locally; server re-issues on visit (no re-login needed)
+- Session cookies (`galaxy_creator_session_id`, `access-token-creator`) have no local expiry; server revokes independently
+- If redirected to login with `redirectReason=401` even with valid local cookies → server-side session invalidation → must re-run `xhs_login.py`
+| `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
+| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. This re-validates the session server-side WITHOUT manual login. See `references/session-learnings-2026-05-26.md`. |
+| **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
+| **Publish button not found but form filled** | `xhs-publish-btn` innerHTML is empty (closed shadow DOM). Call `_onPublish()` directly via `page.evaluate()`: `document.querySelector('xhs-publish-btn')._onPublish()`. See `references/session-learnings-2026-05-26.md`. |
+| Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |
 | Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles (88px font, 128px circle) or `--kp-image-queries` for per-key-point theme images (128px circle-cropped). |
 | Cover emoji circles too small | User preference: emoji circles must be **128px** (2x from 64px) with **88px** font. Number circles also 128px with 56px font. |
@@ -584,3 +679,37 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | Long content via CLI triggers security scan timeout | Content >~200 chars or with many emojis in CLI args gets blocked. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`. |
 | Multi-image upload times out | Uploading 6+ images can exceed Playwright's default timeout. Script auto-scales wait time (20s + 5s/image) and falls back to one-by-one upload if batch fails. |
 | `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
+| `Cookies not expired but redirected to login` | Server-side session invalidation (`redirectReason=401`). Must re-run `xhs_login.py`. See `references/session-learnings-2026-05-23.md`. |
+| `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
+| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. This re-validates the session server-side WITHOUT manual login. See `references/session-learnings-2026-05-26.md`. |
+| **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
+| **Publish button not found but form filled** | `xhs-publish-btn` innerHTML is empty (closed shadow DOM). Call `_onPublish()` directly via `page.evaluate()`: `document.querySelector('xhs-publish-btn')._onPublish()`. See `references/session-learnings-2026-05-26.md`. |
+| Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
+| **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
+| `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
+| `ECONNREFUSED 127.0.0.1:9222` on publish | Chrome debug port not running. Start with `--remote-debugging-port=9222`. Check: `lsof -i :9222`. |
+
+## Anti-Detection Technical Guidelines
+
+**Core principle**: When adding anti-detection, preserve proven script logic and inject human-like behaviors only at interaction points. Do NOT rewrite scripts from scratch.
+
+### What TO Do
+- Use `browser.contexts[0]` instead of `browser.new_context()` — reuses real Chrome context, less detectable
+- Replace `page.click()` with Bezier-curve human mouse movement + random press duration
+- Replace `page.type()` with per-character random delay typing
+- Add random delays (0.5–2s) between critical steps
+- Navigate using `page.evaluate("window.location.href = '...'")` when CDP-connected (uses Chrome's network, not Python's)
+- Use `wait_until="domcontentloaded"` not `"commit"` for XHS pages
+
+### What NOT To Do
+- Do NOT override User-Agent
+- Do NOT use `add_init_script()` — injects detectable JS
+- Do NOT create fresh `browser.new_context()` — creates automation-labeled context
+- Do NOT launch a new Chrome instance — connect to existing Chrome via CDP
+- Do NOT rewrite script structure from scratch — inject into proven logic
+
+### Cookie/Session Troubleshooting
+- `acw_tc` expires ~20min locally; server re-issues on visit (no re-login needed)
+- Session cookies (`galaxy_creator_session_id`, `access-token-creator`) have no local expiry; server revokes independently
+- If redirected to login with `redirectReason=401` even with valid local cookies → server-side session invalidation → must re-run `xhs_login.py`
+- See `references/session-learnings-2026-05-23.md` for full diagnostic workflow

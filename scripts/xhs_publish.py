@@ -169,7 +169,7 @@ async def publish(
     title: str,
     content: str,
     cdp_endpoint: str = CDP_ENDPOINT,
-    draft_only: bool = False,
+    publish_mode: bool = False,
 ):
     from playwright.async_api import async_playwright
 
@@ -417,14 +417,14 @@ async def publish(
         print(f"  Publish button: {'enabled' if is_enabled else 'disabled'}")
 
         # ── Step 7: Save draft or publish ───────────────────────────────
-        if draft_only:
-            print("\n📝 DRAFT MODE: Saving as draft...")
+        if not publish_mode:
+            print("\n📝 DRAFT MODE: Saving as draft (default, safe)...")
             save_btn = page.locator('button:has-text("存草稿")').first
             await human_click_element(page, save_btn)
             await human_delay(2, 4)
             print("✅ Draft saved")
         else:
-            print("\n🚀 Publishing...")
+            print("\n🚀 PUBLISH MODE: Publishing...")
             if publish_btn:
                 await human_click_element(page, publish_btn)
                 await human_delay(3, 5)
@@ -456,7 +456,8 @@ def main():
     parser.add_argument("--content", required=True, help="Content body")
     parser.add_argument("--images", nargs="+", required=True, help="Image file path(s)")
     parser.add_argument(
-        "--draft-only", action="store_true", help="Save as draft without publishing"
+        "--publish", action="store_true", default=False,
+        help="Actually publish (default: save as draft only)"
     )
     parser.add_argument(
         "--cdp-endpoint",
@@ -471,7 +472,7 @@ def main():
             title=args.title,
             content=args.content,
             cdp_endpoint=args.cdp_endpoint,
-            draft_only=args.draft_only,
+            publish_mode=args.publish,
         )
     )
 
