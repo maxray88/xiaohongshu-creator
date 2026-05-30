@@ -36,6 +36,7 @@ async def recover_session():
 - Server-side invalidation was cleared by re-injecting the same cookies
 - The act of navigating with the cookies re-validates the session server-side
 - This does NOT work if cookies are truly expired — only for server-side invalidation while cookies are still within their expiry window
+- **IMPORTANT (2026-05-28 update)**: This recovery ONLY works when `acw_tc` cookies are still fresh. If `acw_tc` has locally expired (timestamp in past), the session is fully revoked and cookie injection fails. See `session-learnings-2026-05-28.md`. Always check `acw_tc` expiry before attempting injection.
 
 ### Chrome Debug Port Auto-Start
 When Chrome debug port is not running but profile exists:

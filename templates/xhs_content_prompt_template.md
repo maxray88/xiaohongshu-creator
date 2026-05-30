@@ -17,15 +17,38 @@ Create a complete Xiaohongshu post for the topic above.
 - Each title MUST be 20 characters or fewer
 
 ### 2. Engaging Body Content
-- **Tone:** Personal, sisterly/brotherly, witty, and relatable. Avoid sounding like a formal advertisement.
+- **Tone:** Personal, sisterly/brotherly, witty, and relatable. Avoid sounding like a formal advertisement or AI-generated marketing copy.
 - **Structure:**
-  - **Hook:** Start with a relatable pain point or a "wow" moment (1-2 sentences)
-  - **Storytelling/Insights:** Mix humor with genuine emotion. Use short, punchy sentences. (3-5 sentences)
-  - **Value List:** Numbered or bulleted list of key points (3-7 items)
-  - **Emotional Close:** Warm ending that connects to the reader (1-2 sentences)
+ - **Hook:** Start with a relatable pain point or a "wow" moment (1-2 sentences)
+ - **Storytelling/Insights:** Mix humor with genuine emotion. Use short, punchy sentences. (3-5 sentences)
+ - **Value List:** Numbered or bulleted list of key points (3-7 items)
+ - **Emotional Close:** Warm ending that connects to the reader (1-2 sentences)
 - **Formatting:** Use bullet points or numbered lists to make it scannable
 - **Language:** Blend professional insights with Gen-Z internet slang
 - **Emoji Magic:** Liberally use emojis to break up text and add personality (but keep it aesthetic, not messy)
+
+#### ⚠️ CRITICAL: Anti-AI-Detection Rules
+Xiaohongshu bans accounts it suspects of using AI content. To avoid detection, **strictly follow these rules**:
+
+| Rule | Do This | Never Do This |
+|------|---------|---------------|
+| Opening | Start with a **personal feeling or doubt**: "我觉得", "说实话", "讲真", "有没有人和我一样…" | Do NOT open with "姐妹们/集美们", "宝藏XX", "绝绝子", "yyds", "给我冲" |
+| Emojis | Use **≤ 3 emojis** total, scattered randomly across body | Do NOT put 1 emoji at the end of every line |
+| Paragraph rhythm | Mix lengths: at least 1 paragraph ≥ 3 lines; use short bursts of 1-line sentences | Do NOT make every paragraph exactly 1-2 lines — that pattern is AI-detectable |
+| Casual markers | Use oral filler words: 吧 / 呢 / 啊 / 嘛 / 嗯 / 诶 — natural speech sounds | Do NOT make it grammatically perfect; allow 1-2 deliberately casual or slightly rambling lines |
+| Closing | End with an **open question** or emotional punch: "你们呢？" "有人懂吗？" | Do NOT end with a direct CTA like "赶紧收藏关注" or "下期见" |
+| Specificity | Include concrete personal details, small complaints, or ironic asides | Do NOT remain fully polished and generic |
+| Forbidden phrases | None of: "码住！", "收藏了！", "太棒了吧！", "这也太…了！", "日常打卡" | These phrases have very high AI-probability on Xiaohongshu |
+
+**Example of bad (AI) vs good (human) opening:**
+- ❌ "姐妹们！今天给大家推荐一个超好用的面膜！"
+- ✅ "说句心里话，这个面膜被吹得那么神我其实是半信半疑的…"
+
+**Human-signal cheat sheet — sprinkle 2-3 in every body:**
+- 讲真 / 说实话 / 我觉得 / 有没有人和我一样 / 说句心里话
+- 吧 / 呢 / 啊 / 嘛 / 嗯 / 诶
+- 离谱 / 破防 / 下头 / 上头 /  emo了
+- 有一说一 / 讲真 / 咱就是说 / 谁懂啊
 
 ### 3. Cover Image Suggestions (3 variants)
 For each cover, describe:

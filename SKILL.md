@@ -19,10 +19,13 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 
 ```
 ~/.hermes/skills/xiaohongshu-creator/
-├── SKILL.md                              # This file - main workflow
+├── SKILL.md # This file - main workflow
 ├── scripts/
-│   ├── xhs_auto_publish.py               # 🚀 Orchestrator: content → images → publish (FULL PIPELINE)
-│   ├── xhs_content_generator.py          # Viral content generator (titles + body + hashtags + cover designs)
+│ ├── xhs_config.py # Shared constants (URLs, selectors, paths, timeouts)
+│ ├── xhs_browser.py # Shared browser helpers (cookie I/O, CDP, factories)
+│ ├── xhs_utils.py # Shared interaction helpers (Bezier, delays, force_click)
+│ ├── xhs_auto_publish.py # 🚀 Orchestrator: content → images → publish (FULL PIPELINE)
+│ ├── xhs_content_generator.py # Viral content generator (titles + body + hashtags + cover designs)
 │   ├── xhs_image_pipeline.py             # All-in-one: search → download → cover render
 │   ├── xhs_publish.py                    # Publish: CDP → fill form → _onPublish() (v10, merged)
 │   ├── xhs_login.py                      # Login: open Chrome, save cookies
@@ -55,6 +58,8 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── session-learnings-2026-05-23.md   # Session learnings (2026-05-23) — session invalidation deep dive
 │   ├── session-learnings-2026-05-24.md   # Session learnings (2026-05-24) — weekly review cron, empty analytics diagnostics
 │   ├── session-learnings-2026-05-25.md   # Session learnings (2026-05-25) — cron session validation, title truncation, draft save failure
+│   ├── session-learnings-2026-05-28.md   # Session learnings (2026-05-28) — cookie injection failure
+│   ├── session-learnings-2026-05-29.md   # Session learnings (2026-05-29) — `_onSave()` method, multiple page context issue
 │   ├── feishu-channel-notification.md     # Feishu IM channel messaging for publish reports
 │   ├── github-workflow.md                # GitHub upload workflow
 │   ├── cover-style-s6-optimized.md       # Approved warm paper texture style with keyword highlighting
@@ -72,6 +77,92 @@ PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
 ```
 
 **Data directory**: `~/.xiaohongshu-creator/` (cookies, session state)
+
+### Shared Modules (refactor 2026-05-31)
+
+Three shared modules now eliminate repeated cookie loading, CDP boilerplate, and
+browser setup across scripts:
+
+- `scripts/xhs_config.py` — canonical URLs, paths, selectors, timeouts
+- `scripts/xhs_browser.py` — `load_cookies`, `save_cookies`, `make_browser_page`, `resolve_cdp_ws_url`, `is_logged_in`
+- `scripts/xhs_utils.py` — `human_delay`, `bezier_move`, `force_click`, screenshot helpers
+
+All scripts add their own `scripts/` dir to `sys.path` and import from those
+modules. **When refactoring any script, first check what's already in
+`xhs_config` / `xhs_browser` / `xhs_utils` before adding more duplication.**
+
+See `references/refactor-modularization-2026-05-31.md` for the full rationale,
+module contracts, and what was deliberately left untouched.
+
+## Content Anti-Detection: Avoiding AI / Bot Flagging
+
+**Critical**: Even if you manually click "Publish", Xiaohongshu may flag your post
+as AI-generated or bot-operated based on **content characteristics**, **behavioral
+patterns**, and **environment fingerprints**.
+
+### Why "Manual Click" Is NOT Enough
+
+| Detection Layer | What It Catches | Your Manual Click Helps? |
+|-----------------|-----------------|--------------------------|
+| Content AI-scan | Text patterns, image style, structure | ❌ No — server-side, happens after upload |
+| Browser fingerprint | `navigator.webdriver`, CDP artifacts | ⚠️ Partially — only if you use a clean profile |
+| Behavioral pattern | Posting time, frequency, session habits | ✅ Yes — varies your behavior |
+| Device/IP reputation | Shared IPs, VPN fingerprints, cookies | ⚠️ Depends on environment |
+
+### Content "De-AI-ification" Rules
+
+When generating or reviewing any post body, enforce these rules:
+
+| AI 特征 | 人写特征 | 强制规则 |
+|---------|----------|----------|
+| 开头模板化 | 口语化、带自我怀疑/吐槽 | 第一句必须有"个人感受词"（我觉得、说实话、讲真、说句心里话） |
+| emoji 规律排列 | emoji 稀疏、位置随机 | 全篇 emoji ≤ 3 个，不在句末密集堆叠 |
+| 分段太整齐 | 长短不一 | 至少 1 段超过 3 行，偶尔连续短句 |
+| 无错别字/无语气词 | 带口语词、方言、省略 | 允许并鼓励：吧/呢/啊/嘛、1-2 处"非正式"表达 |
+| 结尾全是 CTA | 开放式结尾、反问 | 结尾用"你们呢？""有人懂吗？"替代"赶紧收藏关注" |
+| 图片完美对称 | 随手拍/局部图/自然角度 | 封面避免 AI 绘画感（光晕/厚描边/高饱和渐变） |
+| 完全无障碍 | 有"废话"和过渡 | 保留 1 句与主题弱相关的个人吐槽 |
+
+**Forbidden opening phrases** (high AI probability, do NOT use):
+- ❌ 姐妹们/集美们（作为开头）
+- ❌ 宝藏XX / 绝绝子 / yyds / 给我冲
+- ❌ 码住！收藏了！
+- ❌ 每一句末尾都有 emoji
+
+**Recommended opening patterns** (highly human-signal):
+- "今天试了下那个XX，说实话一开始我是拒绝的…"
+- "有没有人和我一样，XX的时候总在胡思乱想？"
+- "说句心里话，这个东西被吹得那么神我其实是半信半疑的…"
+- "昨晚刷到一个帖子，突然破防了。"
+
+### Behavioral Anti-Detection
+
+- **Randomize posting times**: Do not post at fixed cron schedules. Randomize within a 2-8 hour window.
+- **Pre-publish warm-up**: ~10 minutes before publishing, spend time on the platform (browse feed, like 2-3 posts, leave 1 casual comment). Do not open → fill form → publish → close.
+- **Avoid publish-only sessions**: An account that only writes and never reads/interacts is highly suspicious.
+- **Session recycling**: If using the same Chrome session for multiple publishes, occasionally fully close and restart Chrome to clear accumulated automation fingerprints.
+
+### Environment Hygiene
+
+- **Dedicated Chrome profile** for manual publishing: Create a separate Chrome profile that has **never** been controlled by Playwright/CDP. Use this exclusively for manual publishing.
+- **Avoid shared IPs**: Do not run multiple accounts from the same network simultaneously.
+- **Cookie age**: Cookies older than ~7 days are likely stale even if technically valid. Re-login periodically via `xhs_login.py --manual`.
+- **Separate CDP Chrome from browsing Chrome**: If you start Chrome with `--remote-debugging-port=9222` for automation, do NOT use that same window for casual browsing — the browsing history and interaction patterns will be tainted.
+
+### Pre-Publish Quality & Anti-Detection Checklist
+
+Before saving or publishing any post, verify every item:
+
+- [ ] Title ≤ 20 Chinese chars (emoji counted as characters; if title has emoji, ensure text portion ≤ 18 chars)
+- [ ] Body has 1+ personal-feeling opening sentence (我的感受词)
+- [ ] Total emojis ≤ 3, scattered across body (not 1 per line / not packed at end)
+- [ ] At least 1 paragraph has 3+ lines (break rigid 1-2 line rhythm)
+- [ ] Contains at least 1 casual grammar marker: 吧 / 呢 / 啊 / 嘛 / 嗯 / 诶
+- [ ] Opening does NOT start with 姐妹们 / 集美们 / 宝藏 / 绝绝子 / yyds
+- [ ] Closing is open-ended or rhetorical ("你们呢？" / "有人懂吗？"), NOT a direct CTA ("收藏关注")
+- [ ] Cover image looks hand-drawn / natural; not perfectly symmetric, not glowing, not high-saturation gradient
+- [ ] Session is fresh (re-login if cookies > 7 days old)
+- [ ] browsed / liked 1-2 posts earlier in this session before publishing (warm-up behavior)
 
 ## Quality Gate: Self-Review Before Sharing
 
@@ -295,7 +386,7 @@ The publish script (v10) will:
 8. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
 9. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
 10. **Draft by default** — script saves as draft unless `--publish` flag is explicitly passed
-11. **Publish via `_onPublish()`** — fully automatic, bypasses `event.isTrusted`
+11. **Publish via `_onPublish()` / Save via `_onSave()`** — both bypass `event.isTrusted`. The `xhs-publish-btn` custom element exposes these methods directly (shadow DOM is closed, so `locator()` cannot pierce it).
 12. **Verify result** — checks URL + page text for 发布成功/审核/草稿
 13. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
 
@@ -599,9 +690,10 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
 | `Cookies not expired but redirected to login` | Server-side session invalidation (`redirectReason=401`). Must re-run `xhs_login.py`. See `references/session-learnings-2026-05-23.md`. |
 | `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
-| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. This re-validates the session server-side WITHOUT manual login. See `references/session-learnings-2026-05-26.md`. |
+| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
 | **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
-| **Publish button not found but form filled** | `xhs-publish-btn` innerHTML is empty (closed shadow DOM). Call `_onPublish()` directly via `page.evaluate()`: `document.querySelector('xhs-publish-btn')._onPublish()`. See `references/session-learnings-2026-05-26.md`. |
+| **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
+| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. Use `browser.contexts[0].pages[-1]` for latest, or iterate to find the page with your filled form. See `references/session-learnings-2026-05-29.md`. |
 | Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
 | `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
@@ -631,9 +723,10 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 - Session cookies (`galaxy_creator_session_id`, `access-token-creator`) have no local expiry; server revokes independently
 - If redirected to login with `redirectReason=401` even with valid local cookies → server-side session invalidation → must re-run `xhs_login.py`
 | `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
-| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. This re-validates the session server-side WITHOUT manual login. See `references/session-learnings-2026-05-26.md`. |
+| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
 | **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
-| **Publish button not found but form filled** | `xhs-publish-btn` innerHTML is empty (closed shadow DOM). Call `_onPublish()` directly via `page.evaluate()`: `document.querySelector('xhs-publish-btn')._onPublish()`. See `references/session-learnings-2026-05-26.md`. |
+| **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
+| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. Use `browser.contexts[0].pages[-1]` for latest, or iterate to find the page with your filled form. See `references/session-learnings-2026-05-29.md`. |
 | Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |
 | Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles (88px font, 128px circle) or `--kp-image-queries` for per-key-point theme images (128px circle-cropped). |
@@ -646,9 +739,10 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
 | `Cookies not expired but redirected to login` | Server-side session invalidation (`redirectReason=401`). Must re-run `xhs_login.py`. See `references/session-learnings-2026-05-23.md`. |
 | `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
-| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. This re-validates the session server-side WITHOUT manual login. See `references/session-learnings-2026-05-26.md`. |
+| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
 | **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
-| **Publish button not found but form filled** | `xhs-publish-btn` innerHTML is empty (closed shadow DOM). Call `_onPublish()` directly via `page.evaluate()`: `document.querySelector('xhs-publish-btn')._onPublish()`. See `references/session-learnings-2026-05-26.md`. |
+| **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
+| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. Use `browser.contexts[0].pages[-1]` for latest, or iterate to find the page with your filled form. See `references/session-learnings-2026-05-29.md`. |
 | Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
 | `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |

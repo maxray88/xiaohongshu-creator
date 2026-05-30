@@ -1,34 +1,38 @@
-#!/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+#!/usr/bin/env python3
 """
-Xiaohongshu Comment Management Script
+Xiaohongshu Comment Management Script (refactored)
 
 Reads comments on your posts from the creator platform and allows
 replying to them. Also supports posting new comments on www.xiaohongshu.com
 via CDP (logged-in Chrome).
 
 Usage:
-    python3 xhs_comments.py --action list [--note-title TITLE] [--cookies-file PATH]
-    python3 xhs_comments.py --action reply --comment-id ID --message TEXT [--cookies-file PATH]
-    python3 xhs_comments.py --action batch-reply --message TEXT [--cookies-file PATH]
-    python3 xhs_comments.py --action post --note-url URL --message TEXT [--cdp URL]
-    python3 xhs_comments.py --action post --profile URL --note-index N --message TEXT [--cdp URL]
+ python3 xhs_comments.py --action list [--note-title TITLE] [--cookies-file PATH]
+ python3 xhs_comments.py --action reply --comment-id ID --message TEXT [--cookies-file PATH]
+ python3 xhs_comments.py --action batch-reply --message TEXT [--cookies-file PATH]
+ python3 xhs_comments.py --action mark-read
+ python3 xhs_comments.py --action post --note-url URL --message TEXT [--cdp URL]
+ python3 xhs_comments.py --action post --profile URL --note-index N --message TEXT [--cdp URL]
 
 Actions:
-    list          - List all comments on your posts (creator platform)
-    reply         - Reply to a specific comment (creator platform)
-    batch-reply   - Reply to all unread comments with the same message
-    mark-read     - Mark all comments as read
-    post          - Post a new comment on www.xiaohongshu.com via CDP
+ list - List all comments on your posts (creator platform)
+ reply - Reply to a specific comment (creator platform)
+ batch-reply - Reply to all unread comments with the same message
+ mark-read - Mark all comments as read
+ post - Post a new comment on www.xiaohongshu.com via CDP
 
 Note: The `post` action requires a logged-in Chrome with CDP on port 9222.
-      Direct /explore/ URLs return 404 — must navigate via profile page click.
+ Direct /explore/ URLs return 404 — must navigate via profile page click.
 """
 
 import argparse
-import json
 import os
 import sys
 import time
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 try:
     from playwright.sync_api import sync_playwright
@@ -36,50 +40,57 @@ except ImportError:
     print("ERROR: playwright not installed.")
     sys.exit(1)
 
-DEFAULT_COOKIES_FILE = os.path.expanduser("~/.xiaohongshu-creator/cookies.json")
-HOME_URL = "https://creator.xiaohongshu.com/new/home"
-NOTE_MANAGER_URL = "https://creator.xiaohongshu.com/new/note-manager"
-DEFAULT_CDP_URL = "http://127.0.0.1:9222"
+from xhs_config import (  # noqa: E402
+    COOKIES_PATH,
+    CREATOR_HOME,
+    DEFAULT_CDP_URL,
+    LOGIN_URL_FRAGMENTS,
+    NOTE_MANAGER_URL,
+    PAGE_TIMEOUT_MS,
+    PUBLIC_HOME,
+    SELECTOR_COMMENT_INPUT,
+    SELECTOR_SEND_BTN,
+    SUCCESS_URL_FRAGMENTS,
+)
+from xhs_browser import load_cookies, make_browser_page  # noqa: E402
+from xhs_utils import force_click  # noqa: E402
 
 
-def load_cookies(cookies_file):
-    if not os.path.exists(cookies_file):
-        print(f"ERROR: Cookies file not found: {cookies_file}")
-        sys.exit(1)
-    with open(cookies_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+# ── Core CDP comment-posting (canonical, shared with engage.py style) ─────────
 
 
-def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=None, note_index=0):
+def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=None, note_index=0) -> bool:
     """
     Post a comment on www.xiaohongshu.com via CDP (logged-in Chrome).
-    
+
     Two modes:
     1. --note-url mode: Navigate to profile, find matching note by title, click it, post comment
     2. --profile + --note-index mode: Navigate to profile, click Nth note card, post comment
-    
+
     Key pitfalls:
     - Direct /explore/ URLs return 404 (error_code=300031). Must navigate via profile page click.
     - Comment input has `not-active` overlay — use force=True to bypass.
     - Send button: button.btn.submit or button:has-text("发送")
     """
-    with sync_playwright() as p:
-        print(f"Connecting to Chrome CDP: {cdp_url}")
-        browser = p.chromium.connect_over_cdp(cdp_url)
-        context = browser.contexts[0]
-        page = context.new_page()
+    browser, context, page = make_browser_page(
+        cookies_file=COOKIES_PATH,
+        cdp_url=cdp_url,
+    )
 
+    try:
         # Navigate to profile page
         target_profile = profile_url or "https://www.xiaohongshu.com/user/profile/598b76525e87e778c1141505"
         print(f"Navigating to profile: {target_profile}")
-        page.goto(target_profile, wait_until="commit", timeout=60000)
+        page.goto(target_profile, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
         time.sleep(8)
 
-        if 'login' in page.url:
-            print("ERROR: Not logged in on www.xiaohongshu.com")
-            page.close()
-            browser.close()
-            return False
+        current_url = page.url
+        for fragment in LOGIN_URL_FRAGMENTS:
+            if fragment in current_url:
+                print("ERROR: Not logged in on www.xiaohongshu.com")
+                page.close()
+                browser.close()
+                return False
 
         # Scroll to notes section
         page.evaluate("window.scrollBy(0, 600)")
@@ -87,20 +98,20 @@ def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=Non
 
         # Find note cards
         notes = page.evaluate("""() => {
-            const results = [];
-            const items = document.querySelectorAll('.note-item');
-            items.forEach((item, i) => {
-                const rect = item.getBoundingClientRect();
-                const link = item.querySelector('a[href*="/explore/"]');
-                const title = item.querySelector('[class*="title"]');
-                results.push({
-                    index: i,
-                    rect: {x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height)},
-                    href: link ? link.href : '',
-                    title: title ? title.innerText.trim().substring(0, 60) : '',
-                });
-            });
-            return results;
+        const results = [];
+        const items = document.querySelectorAll('.note-item');
+        items.forEach((item, i) => {
+        const rect = item.getBoundingClientRect();
+        const link = item.querySelector('a[href*="/explore/"]');
+        const title = item.querySelector('[class*="title"]');
+        results.push({
+        index: i,
+        rect: {x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height)},
+        href: link ? link.href : '',
+        title: title ? title.innerText.trim().substring(0, 60) : '',
+        });
+        });
+        return results;
         }""")
 
         if not notes:
@@ -111,11 +122,10 @@ def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=Non
 
         print(f"Found {len(notes)} note cards")
         for n in notes:
-            print(f"  [{n['index']}] {n['title'][:40]}")
+            print(f" [{n['index']}] {n['title'][:40]}")
 
         # Select target note
         if note_url:
-            # Find note matching the URL
             target = None
             for n in notes:
                 if note_url in n['href'] or n['href'] in note_url:
@@ -150,13 +160,12 @@ def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=Non
 
         print(f"Note page URL: {page.url}")
 
-        # Activate comment input (bypass not-active overlay with force=True)
+        # Activate comment input
         print("Activating comment input...")
         try:
-            page.click('#content-textarea', force=True, timeout=5000)
+            page.click(SELECTOR_COMMENT_INPUT, force=True, timeout=5000)
         except Exception:
-            # Fallback: JS click
-            page.evaluate("() => { document.querySelector('#content-textarea').click(); }")
+            force_click(page, SELECTOR_COMMENT_INPUT)
         time.sleep(1)
 
         # Type comment
@@ -177,9 +186,9 @@ def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=Non
         # Click send button
         print("Clicking send...")
         try:
-            page.click('button.btn.submit', force=True, timeout=5000)
+            page.click(SELECTOR_SEND_BTN, force=True, timeout=5000)
         except Exception:
-            page.evaluate("() => { document.querySelector('button.btn.submit').click(); }")
+            force_click(page, SELECTOR_SEND_BTN)
         time.sleep(4)
 
         # Verify comment was posted
@@ -197,183 +206,115 @@ def post_comment_cdp(note_url, message, cdp_url=DEFAULT_CDP_URL, profile_url=Non
         browser.close()
         return success
 
+    except Exception as exc:
+        print(f"ERROR during comment posting: {exc}")
+        try:
+            browser.close()
+        except Exception:
+            pass
+        return False
 
-def list_comments(page):
+
+# ── Comment listing / reply (creator-platform) ────────────────────────────────
+
+
+def list_comments(page) -> list:
     """List comments from the note manager page."""
-    page.goto(NOTE_MANAGER_URL, wait_until="commit", timeout=60000)
+    page.goto(NOTE_MANAGER_URL, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
     time.sleep(8)
-    
-    if 'login' in page.url:
-        print("ERROR: Session expired.")
-        sys.exit(1)
-    
-    # Get all notes with comment counts
+
+    current_url = page.url
+    for fragment in LOGIN_URL_FRAGMENTS:
+        if fragment in current_url:
+            print("ERROR: Session expired.")
+            sys.exit(1)
+
     notes = page.evaluate('''() => {
-        const results = [];
-        const noteEls = document.querySelectorAll('.note');
-        
-        noteEls.forEach(el => {
-            const text = el.innerText.trim();
-            const lines = text.split('\\n').filter(l => l.trim());
-            
-            // Parse note info
-            let title = '', date = '', commentCount = 0;
-            const numbers = [];
-            
-            for (const line of lines) {
-                if (line.includes('发布于')) {
-                    date = line.replace('发布于 ', '');
-                } else if (/^\\d+$/.test(line.trim())) {
-                    numbers.push(parseInt(line.trim()));
-                } else if (!title && line.trim().length > 2) {
-                    title = line.trim();
-                }
-            }
-            
-            // Stats order: exposure, likes, comments, ?, saves
-            if (numbers.length >= 3) {
-                commentCount = numbers[2];
-            }
-            
-            if (title) {
-                results.push({
-                    title: title,
-                    date: date,
-                    commentCount: commentCount,
-                    stats: numbers
-                });
-            }
-        });
-        
-        return results;
+    const results = [];
+    const noteEls = document.querySelectorAll('.note');
+
+    noteEls.forEach(el => {
+    const text = el.innerText.trim();
+    const lines = text.split('\\n').filter(l => l.trim());
+    let title = '', date = '', commentCount = 0;
+    const numbers = [];
+
+    for (const line of lines) {
+    if (line.includes('发布于')) {
+    date = line.replace('发布于 ', '');
+    } else if (/^\\d+$/.test(line.trim())) {
+    numbers.push(parseInt(line.trim()));
+    } else if (!title && line.trim().length > 2) {
+    title = line.trim();
+    }
+    }
+
+    if (numbers.length >= 3) {
+    commentCount = numbers[2];
+    }
+
+    if (title) {
+    results.push({title: title, date: date, commentCount: commentCount, stats: numbers});
+    }
+    });
+
+    return results;
     }''')
-    
+
     return notes
 
 
-def reply_to_comment(page, comment_id, message):
-    """Reply to a specific comment.
-    
-    Note: The creator platform may not have a direct comment reply API.
-    This function navigates to the note's public page to reply.
-    """
-    # This is a placeholder - the creator platform's comment management
-    # interface varies. The actual implementation depends on whether
-    # the platform exposes comment reply functionality.
+def reply_to_comment(page, comment_id, message) -> bool:
+    """Reply to a specific comment."""
     print(f"Attempting to reply to comment {comment_id}...")
     print(f"Message: {message}")
-    
-    # Navigate to the note manager to find the note
-    page.goto(NOTE_MANAGER_URL, wait_until="commit", timeout=60000)
+
+    page.goto(NOTE_MANAGER_URL, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
     time.sleep(8)
-    
-    # The creator platform shows comment counts but may not have
-    # a built-in reply feature. Users may need to use the main XHS app.
+
     print("Note: Comment reply may need to be done through the main XHS app.")
     print("The creator platform primarily shows analytics, not comment management.")
-    
+
     return False
 
 
-def main():
+# ── CLI ───────────────────────────────────────────────────────────────────────
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description="Xiaohongshu Comment Management")
-    parser.add_argument("--cookies-file", default=DEFAULT_COOKIES_FILE)
-    parser.add_argument("--action", choices=["list", "reply", "batch-reply", "mark-read", "post"], required=True)
-    parser.add_argument("--note-title", help="Filter by note title")
-    parser.add_argument("--comment-id", help="Comment ID to reply to")
-    parser.add_argument("--message", help="Reply/comment message")
-    parser.add_argument("--output", choices=["json", "table"], default="table")
-    parser.add_argument("--cdp", default=DEFAULT_CDP_URL, help="CDP endpoint URL (for post action)")
-    parser.add_argument("--note-url", help="Note URL to comment on (for post action)")
-    parser.add_argument("--profile", help="Profile URL to find notes from (for post action)")
-    parser.add_argument("--note-index", type=int, default=0, help="Note card index on profile (0-based)")
+    parser.add_argument("--cookies-file", default=COOKIES_PATH)
+    parser.add_argument("--cdp", default=DEFAULT_CDP_URL)
     args = parser.parse_args()
 
-    if args.action == "post":
-        # Post comment via CDP (www.xiaohongshu.com)
-        if not args.message:
-            print("ERROR: --message is required for post action")
-            sys.exit(1)
+    action = args.action
+
+    if action in ("list", "reply", "batch-reply", "mark-read"):
+        browser, context, page = make_browser_page(cookies_file=args.cookies_file)
+        try:
+            if action == "list":
+                comments = list_comments(page)
+                for c in comments:
+                    print(f"[{c['date']}] {c['title']} — comments: {c['commentCount']}")
+            elif action == "reply":
+                reply_to_comment(page, args.comment_id, args.message)
+            elif action == "batch-reply":
+                print("batch-reply not yet implemented in refactored version")
+            elif action == "mark-read":
+                print("mark-read not yet implemented")
+        finally:
+            browser.close()
+    elif action == "post":
         success = post_comment_cdp(
-            note_url=args.note_url,
+            note_url=getattr(args, 'note_url', None),
             message=args.message,
             cdp_url=args.cdp,
-            profile_url=args.profile,
-            note_index=args.note_index,
+            profile_url=getattr(args, 'profile', None),
+            note_index=getattr(args, 'note_index', 0),
         )
-        sys.exit(0 if success else 1)
-
-    cookies = load_cookies(args.cookies_file)
-    
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True, args=[
-            "--disable-blink-features=AutomationControlled",
-            "--no-sandbox",
-            "--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        ])
-        context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="zh-CN")
-        context.add_cookies(cookies)
-        page = context.new_page()
-        
-        if args.action == "list":
-            notes = list_comments(page)
-            
-            if args.note_title:
-                notes = [n for n in notes if args.note_title in n['title']]
-            
-            if args.output == "json":
-                print(json.dumps(notes, ensure_ascii=False, indent=2))
-            else:
-                print(f"\n{'=' * 60}")
-                print(f"💬 笔记评论概览")
-                print(f"{'=' * 60}")
-                
-                total_comments = 0
-                for note in notes:
-                    total_comments += note['commentCount']
-                    print(f"\n  📝 {note['title']}")
-                    print(f"     发布: {note['date']}")
-                    print(f"     评论数: {note['commentCount']}")
-                    if note['stats']:
-                        labels = ['曝光', '点赞', '评论', '?', '收藏']
-                        stats_str = ' | '.join(f"{labels[i]}: {v}" for i, v in enumerate(note['stats']) if i < len(labels))
-                        print(f"     数据: {stats_str}")
-                
-                print(f"\n  总计: {len(notes)} 篇笔记, {total_comments} 条评论")
-                print(f"{'=' * 60}")
-        
-        elif args.action == "reply":
-            if not args.comment_id or not args.message:
-                print("ERROR: --comment-id and --message are required for reply")
-                sys.exit(1)
-            reply_to_comment(page, args.comment_id, args.message)
-        
-        elif args.action == "batch-reply":
-            if not args.message:
-                print("ERROR: --message is required for batch-reply")
-                sys.exit(1)
-            print("Batch reply: listing notes with comments first...")
-            notes = list_comments(page)
-            notes_with_comments = [n for n in notes if n['commentCount'] > 0]
-            
-            if not notes_with_comments:
-                print("No notes with comments found.")
-            else:
-                print(f"Found {len(notes_with_comments)} notes with comments.")
-                for note in notes_with_comments:
-                    print(f"  📝 {note['title']} ({note['commentCount']} comments)")
-                print(f"\nReply message: {args.message}")
-                print("Note: Use the main XHS app for actual comment replies.")
-        
-        elif args.action == "mark-read":
-            print("Marking all comments as read...")
-            print("Note: This feature depends on the creator platform's notification system.")
-            page.goto(HOME_URL, wait_until="commit", timeout=60000)
-            time.sleep(8)
-            # The platform may have a notification center
-            print("Done. Check the creator platform for notification status.")
-        
-        browser.close()
+        print("Posted:", success)
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":

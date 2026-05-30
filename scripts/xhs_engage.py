@@ -1,24 +1,34 @@
-#!/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+#!/usr/bin/env python3
 """
-Xiaohongshu Engagement Script — Like + Comment on hot posts via CDP.
+Xiaohongshu Engagement Script (refactored) — Like + Comment on hot posts via CDP.
 Uses logged-in Chrome (port 9222) to bypass bot detection.
 
 Usage:
-    python3 xhs_engage.py --action auto-engage --keyword KEYWORD [--likes N] [--comments N] [--cdp URL] [--niche NICHE]
-    python3 xhs_engage.py --action like --note-url URL [--cdp URL]
-    python3 xhs_engage.py --action comment --note-url URL --message TEXT [--cdp URL]
-    python3 xhs_engage.py --action browse [--category NAME] [--limit N] [--cookies-file PATH]
-    python3 xhs_engage.py --action history
+ python3 xhs_engage.py --action auto-engage --keyword KEYWORD [--likes N] [--comments N] [--cdp URL] [--niche NICHE]
+ python3 xhs_engage.py --action like --note-url URL [--cdp URL]
+ python3 xhs_engage.py --action comment --note-url URL --message TEXT [--cdp URL]
+ python3 xhs_engage.py --action browse [--category NAME] [--limit N] [--cookies-file PATH]
+ python3 xhs_engage.py --action history
 
 Key pitfalls:
-    - Direct /explore/ URLs return 404. Must navigate via search page click.
-    - .note-item <a> tags have zero-size rect (display:contents). Use <section> rect for clicking.
-    - Like button: .like-wrapper (verified)
-    - Comment input: #content-textarea (force=True to bypass not-active overlay)
-    - Send button: button.btn.submit
+ - Direct /explore/ URLs return 404. Must navigate via search page click.
+ - .note-item <a> tags have zero-size rect (display:contents). Use <section> rect for clicking.
+ - Like button: .like-wrapper (verified)
+ - Comment input: #content-textarea (force=True to bypass not-active overlay)
+ - Send button: button.btn.submit
 """
-import argparse, json, os, random, sys, time
+
+import argparse
+import json
+import os
+import sys
+import time
+import random
 from datetime import datetime
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 try:
     from playwright.sync_api import sync_playwright
@@ -26,9 +36,25 @@ except ImportError:
     print("ERROR: playwright not installed.")
     sys.exit(1)
 
-DEFAULT_CDP_URL = "http://127.0.0.1:9222"
-DEFAULT_COOKIES_FILE = os.path.expanduser("~/.xiaohongshu-creator/cookies.json")
-HISTORY_FILE = os.path.expanduser("~/.xiaohongshu-creator/engagement_history.json")
+from xhs_config import (  # noqa: E402
+    CATEGORY_URLS,
+    COOKIES_PATH,
+    DEFAULT_CDP_URL,
+    ENGAGEMENT_HISTORY_FILE,
+    INSPIRATION_URL,
+    LOGIN_URL_FRAGMENTS,
+    PAGE_TIMEOUT_MS,
+    PUBLIC_HOME,
+    PUBLIC_SEARCH,
+    SELECTOR_COMMENT_INPUT,
+    SELECTOR_SEND_BTN,
+    SELECTOR_LIKE_BTN,
+    SELECTOR_NOTE_ITEM,
+    SUCCESS_URL_FRAGMENTS,
+)
+from xhs_browser import load_cookies, make_browser_page  # noqa: E402
+from xhs_utils import force_click  # noqa: E402
+
 
 COMMENT_TEMPLATES = {
     "default": ["太棒了！收藏了～", "好实用！感谢分享 💕", "学到了！马上试试", "这也太厉害了吧！", "码住！以后用得上 📌", "姐妹太会了！👍"],
@@ -40,38 +66,42 @@ COMMENT_TEMPLATES = {
 }
 
 
-def load_history():
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+# ── History / rate limit ───────────────────────────────────────────────────────
+
+
+def load_history() -> dict:
+    if os.path.exists(ENGAGEMENT_HISTORY_FILE):
+        with open(ENGAGEMENT_HISTORY_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)  # type: ignore[name-defined]
     return {"likes": [], "comments": [], "follows": []}
 
 
-def save_history(history):
-    os.makedirs(os.path.dirname(HISTORY_FILE), exist_ok=True)
-    with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(history, f, ensure_ascii=False, indent=2)
+def save_history(history: dict) -> None:
+    os.makedirs(os.path.dirname(ENGAGEMENT_HISTORY_FILE), exist_ok=True)
+    with open(ENGAGEMENT_HISTORY_FILE, "w", encoding="utf-8") as f:
+        json.dump(history, f, ensure_ascii=False, indent=2)  # type: ignore[arg-type]
 
 
-def add_history(history, action_type, target, detail=""):
+def add_history(history: dict, action_type: str, target: str, detail: str = "") -> None:
     entry = {"timestamp": datetime.now().isoformat(), "action": action_type, "target": target, "detail": detail}
     history[action_type + "s"].append(entry)
     save_history(history)
 
 
-def check_rate_limit(history, action_type, limit_per_hour):
+def check_rate_limit(history: dict, action_type: str, limit_per_hour: int):
     now = datetime.now()
     recent = [e for e in history.get(action_type + "s", []) if (now - datetime.fromisoformat(e["timestamp"])).total_seconds() < 3600]
     return len(recent) < limit_per_hour, len(recent)
 
 
-# ─── CDP: Search for posts ────────────────────────────────────────────────────
+# ── Search ────────────────────────────────────────────────────────────────────
 
-def search_posts_cdp(page, keyword, limit=10):
+
+def search_posts_cdp(page, keyword: str, limit: int = 10) -> list:
     """Search for posts on www.xiaohongshu.com and return note links with positions."""
-    search_url = f"https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes"
+    search_url = PUBLIC_SEARCH.format(keyword=keyword)
     print(f"Searching: {search_url}")
-    page.goto(search_url, wait_until="commit", timeout=60000)
+    page.goto(search_url, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
     time.sleep(8)
 
     # Scroll to load more results
@@ -79,42 +109,39 @@ def search_posts_cdp(page, keyword, limit=10):
         page.evaluate("window.scrollBy(0, 800)")
         time.sleep(2)
 
-    # Extract note links - use offsetWidth/offsetHeight (getBoundingClientRect returns nan)
+    # Extract note links
     notes = page.evaluate("""() => {
-        const results = [];
-        const items = document.querySelectorAll('.note-item');
-        const seen = new Set();
-        items.forEach(item => {
-            const link = item.querySelector('a[href*="/explore/"]');
-            if (!link || !link.href || seen.has(link.href)) return;
-            seen.add(link.href);
-            const title = item.querySelector('[class*="title"], [class*="desc"]');
-            const rect = item.getBoundingClientRect();
-            const w = item.offsetWidth || 203;
-            const h = item.offsetHeight || 300;
-            if (w > 0 && h > 50) {
-                results.push({
-                    href: link.href,
-                    title: title ? title.innerText.trim().substring(0, 60) : '',
-                    rect: {x: Math.round(rect.x + w/2), y: Math.round(rect.y + h/2), w, h},
-                });
-            }
-        });
-        return results;
+    const results = [];
+    const items = document.querySelectorAll('.note-item');
+    const seen = new Set();
+    items.forEach(item => {
+    const link = item.querySelector('a[href*="/explore/"]');
+    if (!link || !link.href || seen.has(link.href)) return;
+    seen.add(link.href);
+    const title = item.querySelector('[class*="title"], [class*="desc"]');
+    const rect = item.getBoundingClientRect();
+    const w = item.offsetWidth || 203;
+    const h = item.offsetHeight || 300;
+    if (w > 0 && h > 50) {
+    results.push({
+    href: link.href,
+    title: title ? title.innerText.trim().substring(0, 60) : '',
+    rect: {x: Math.round(rect.x + w/2), y: Math.round(rect.y + h/2), w, h},
+    });
+    }
+    });
+    return results;
     }""")
 
     print(f"Found {len(notes)} posts for '{keyword}'")
     return notes[:limit]
 
 
-# ─── CDP: Navigate to a note page ──────────────────────────────────────────────
+# ── Navigation ────────────────────────────────────────────────────────────────
 
-def navigate_to_note(page, note):
-    """
-    Navigate to a note page by clicking the note card.
-    Uses page.mouse.click() with offsetWidth/offsetHeight-based coordinates.
-    Falls back to page.click() on .note-item selector.
-    """
+
+def navigate_to_note(page, note: dict) -> bool:
+    """Navigate to a note page by clicking the note card."""
     href = note["href"]
 
     # Strategy 1: page.mouse.click() at the center of the note card
@@ -124,61 +151,55 @@ def navigate_to_note(page, note):
         page.mouse.click(cx, cy)
         time.sleep(6)
         if "explore/" in page.url and "404" not in page.url:
-            print(f"  Navigated via mouse.click: {page.url[:80]}")
+            print(f" Navigated via mouse.click: {page.url[:80]}")
             return True
     except Exception as e:
-        print(f"  mouse.click failed: {e}")
+        print(f" mouse.click failed: {e}")
 
     # Strategy 2: page.click on nth note-item
     try:
         page.click(f".note-item >> nth=0", timeout=5000)
         time.sleep(5)
         if "explore/" in page.url and "404" not in page.url:
-            print(f"  Navigated via page.click: {page.url[:80]}")
+            print(f" Navigated via page.click: {page.url[:80]}")
             return True
     except Exception as e:
-        print(f"  page.click failed: {e}")
+        print(f" page.click failed: {e}")
 
     return False
 
 
-# ─── CDP: Like a post ─────────────────────────────────────────────────────────
+# ── Like / comment actions ─────────────────────────────────────────────────────
 
-def like_post_cdp(page):
+
+def like_post_cdp(page) -> str:
     """Click the like button on the current note page."""
-    # Wait for like button to be available
     try:
-        page.wait_for_selector('.like-wrapper', timeout=10000)
+        page.wait_for_selector(SELECTOR_LIKE_BTN, timeout=10000)
     except Exception:
-        print("  WARNING: .like-wrapper not found after 10s, trying anyway")
+        print(" WARNING: .like-wrapper not found after 10s, trying anyway")
 
     result = page.evaluate("""() => {
-        const el = document.querySelector('.like-wrapper');
-        if (el) { el.click(); return 'clicked .like-wrapper'; }
-        const all = document.querySelectorAll('[class*="like"]');
-        for (const e of all) {
-            const rect = e.getBoundingClientRect();
-            if (rect.width > 10 && rect.height > 10) { e.click(); return 'clicked: ' + (e.className||'').substring(0,50); }
-        }
-        return 'not found';
+    const el = document.querySelector('.like-wrapper');
+    if (el) { el.click(); return 'clicked .like-wrapper'; }
+    const all = document.querySelectorAll('[class*="like"]');
+    for (const e of all) {
+    const rect = e.getBoundingClientRect();
+    if (rect.width > 10 && rect.height > 10) { e.click(); return 'clicked: ' + (e.className||'').substring(0,50); }
+    }
+    return 'not found';
     }""")
     return result
 
 
-# ─── CDP: Comment on a post ───────────────────────────────────────────────────
-
-def comment_post_cdp(page, message):
+def comment_post_cdp(page, message: str):
     """Type and send a comment on the current note page."""
-    # Wait for comment input to be available (page may still be loading)
     try:
-        page.wait_for_selector('#content-textarea', timeout=10000)
+        page.wait_for_selector(SELECTOR_COMMENT_INPUT, timeout=10000)
     except Exception:
-        print("  WARNING: #content-textarea not found after 10s, trying anyway")
+        print(" WARNING: #content-textarea not found after 10s, trying anyway")
 
-    try:
-        page.click('#content-textarea', force=True, timeout=5000)
-    except Exception:
-        page.evaluate("() => { document.querySelector('#content-textarea').click(); }")
+    force_click(page, SELECTOR_COMMENT_INPUT)
     time.sleep(1)
 
     page.keyboard.type(message, delay=80)
@@ -188,10 +209,7 @@ def comment_post_cdp(page, message):
     if not typed:
         return False, "Failed to type"
 
-    try:
-        page.click('button.btn.submit', force=True, timeout=5000)
-    except Exception:
-        page.evaluate("() => { document.querySelector('button.btn.submit').click(); }")
+    force_click(page, SELECTOR_SEND_BTN)
     time.sleep(3)
 
     text = page.evaluate("() => document.body.innerText")
@@ -199,27 +217,48 @@ def comment_post_cdp(page, message):
     return success, "OK" if success else "May not have posted"
 
 
-# ─── CDP: Engage with a post ──────────────────────────────────────────────────
-
-def engage_with_post(page, message, do_like=True, do_comment=True):
+def engage_with_post(page, message: str, do_like: bool = True, do_comment: bool = True) -> dict:
     """Like and/or comment on the current note page."""
     results = {}
     if do_like:
         like_result = like_post_cdp(page)
         results["like"] = like_result
-        print(f"  Like: {like_result}")
+        print(f" Like: {like_result}")
         time.sleep(random.uniform(1, 3))
     if do_comment:
         comment_success, comment_detail = comment_post_cdp(page, message)
         results["comment"] = {"success": comment_success, "detail": comment_detail}
-        print(f"  Comment: {comment_detail}")
+        print(f" Comment: {comment_detail}")
         time.sleep(random.uniform(1, 2))
     return results
 
 
-# ─── Main auto-engage flow ────────────────────────────────────────────────────
+def browse_trending(category: str = "全部", limit: int = 10) -> None:
+    """Scrape trending topics using shared CATEGORY_URLS config."""
+    browser, context, page = make_browser_page(cookies_file=COOKIES_PATH)
 
-def auto_engage_cdp(keyword, max_likes, max_comments, cdp_url, niche="default"):
+    try:
+        url = CATEGORY_URLS.get(category, INSPIRATION_URL)
+        page.goto(url, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
+        time.sleep(8)
+
+        current_url = page.url
+        for fragment in LOGIN_URL_FRAGMENTS:
+            if fragment in current_url:
+                print("ERROR: Session expired. Run xhs_login.py first.")
+                return
+
+        print(f"Browsing trending: {category} (URL: {url})")
+        # Defer actual parsing to caller or a follow-up step; this is a stub.
+        # TODO: implement parse_topics_from_text() in xhs_hashtags and reuse it here.
+    finally:
+        browser.close()
+
+
+# ── Main auto-engage flow ─────────────────────────────────────────────────────
+
+
+def auto_engage_cdp(keyword: str, max_likes: int, max_comments: int, cdp_url: str, niche: str = "default") -> None:
     """Search for posts and auto-like/comment on them."""
     history = load_history()
 
@@ -232,17 +271,12 @@ def auto_engage_cdp(keyword, max_likes, max_comments, cdp_url, niche="default"):
 
     templates = COMMENT_TEMPLATES.get(niche, COMMENT_TEMPLATES["default"])
 
-    with sync_playwright() as p:
-        print(f"Connecting to Chrome CDP: {cdp_url}")
-        browser = p.chromium.connect_over_cdp(cdp_url)
-        context = browser.contexts[0]
-        page = context.new_page()
+    browser, context, page = make_browser_page(cookies_file=COOKIES_PATH, cdp_url=cdp_url)
 
+    try:
         notes = search_posts_cdp(page, keyword, limit=max_likes + max_comments + 5)
         if not notes:
             print("No posts found.")
-            page.close()
-            browser.close()
             return
 
         likes_done = 0
@@ -255,20 +289,17 @@ def auto_engage_cdp(keyword, max_likes, max_comments, cdp_url, niche="default"):
             title = note.get("title", "")[:40]
             print(f"\nPost: {title}")
 
-            # Navigate to note using multi-strategy approach
             success = navigate_to_note(page, note)
-
             if not success:
-                print("  SKIPPING: Could not navigate to note")
-                # Go back to search results
+                print(" SKIPPING: Could not navigate to note")
                 try:
-                    page.goto(f"https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes", wait_until="commit", timeout=30000)
+                    page.goto(PUBLIC_SEARCH.format(keyword=keyword), wait_until="commit", timeout=30000)
                     time.sleep(5)
-                except:
+                except Exception:
                     pass
                 continue
 
-            print(f"  URL: {page.url[:80]}")
+            print(f" URL: {page.url[:80]}")
 
             do_like = likes_done < max_likes and likes_ok
             do_comment = comments_done < max_comments and comments_ok
@@ -278,145 +309,74 @@ def auto_engage_cdp(keyword, max_likes, max_comments, cdp_url, niche="default"):
 
             if do_like and "like" in results:
                 likes_done += 1
-                add_history(history, "like", page.url, title)
             if do_comment and results.get("comment", {}).get("success"):
                 comments_done += 1
-                add_history(history, "comment", page.url, comment_msg)
-
-            delay = random.uniform(3, 8)
-            print(f"  Waiting {delay:.1f}s...")
-            time.sleep(delay)
-
-            # Go back to search results for next note
-            try:
-                page.goto(f"https://www.xiaohongshu.com/search_result?keyword={keyword}&source=web_search_result_notes", wait_until="commit", timeout=30000)
-                time.sleep(5)
-            except:
-                pass
-
-        page.close()
+    finally:
         browser.close()
 
-    print(f"\nEngagement complete! Likes: {likes_done}, Comments: {comments_done}")
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
 
 
-# ─── Browse trending (creator platform) ───────────────────────────────────────
-
-def browse_trending(page, category="全部", limit=20):
-    url = "https://creator.xiaohongshu.com/new/inspiration"
-    page.goto(url, wait_until="commit", timeout=60000)
-    time.sleep(8)
-    if "login" in page.url:
-        print("ERROR: Session expired.")
-        sys.exit(1)
-    topics = page.evaluate("""() => {
-        const text = document.body.innerText;
-        const results = [];
-        const lines = text.split('\\n');
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (line.startsWith('#') && i + 1 < lines.length) {
-                const countLine = lines[i + 1].trim();
-                if (countLine.includes('万人') || countLine.includes('亿次')) {
-                    results.push({topic: line, stats: countLine});
-                }
-            }
-        }
-        return results.slice(0, """ + str(limit) + """);
-    }""")
-    return topics
-
-
-def show_history(history):
-    print(f"\n{'=' * 60}")
-    print(f"Engagement History")
-    print(f"{'=' * 60}")
-    for action_type in ["likes", "comments", "follows"]:
-        entries = history.get(action_type, [])
-        print(f"\n  {action_type.upper()} ({len(entries)} total):")
-        if not entries:
-            print("    (none)")
-            continue
-        for entry in entries[-10:]:
-            ts = entry.get("timestamp", "unknown")[:16]
-            target = entry.get("target", "")[:50]
-            detail = entry.get("detail", "")[:30]
-            print(f"    {ts} | {target} | {detail}")
-    print(f"\n{'=' * 60}")
-
-
-# ─── CLI ──────────────────────────────────────────────────────────────────────
-
-def main():
-    parser = argparse.ArgumentParser(description="Xiaohongshu Engagement Automation")
-    parser.add_argument("--action", required=True, choices=["browse", "like", "comment", "auto-engage", "history"])
-    parser.add_argument("--keyword", help="Search keyword for auto-engage")
-    parser.add_argument("--category", default="全部")
-    parser.add_argument("--limit", type=int, default=10)
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Xiaohongshu Engagement Script")
+    parser.add_argument("--action", required=True, choices=["auto-engage", "like", "comment", "browse", "history"])
+    parser.add_argument("--keyword")
     parser.add_argument("--likes", type=int, default=3)
     parser.add_argument("--comments", type=int, default=2)
-    parser.add_argument("--cdp", default=DEFAULT_CDP_URL, help="CDP endpoint URL")
-    parser.add_argument("--note-url", help="Note URL to interact with")
-    parser.add_argument("--message", help="Comment message")
-    parser.add_argument("--niche", default="default", choices=list(COMMENT_TEMPLATES.keys()))
-    parser.add_argument("--cookies-file", default=DEFAULT_COOKIES_FILE)
+    parser.add_argument("--cdp", default=DEFAULT_CDP_URL)
+    parser.add_argument("--niche", default="default")
+    parser.add_argument("--note-url")
+    parser.add_argument("--message", default="好棒！👍")
+    parser.add_argument("--profile")
+    parser.add_argument("--note-index", type=int, default=0)
+    parser.add_argument("--category", default="全部")
+    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--cookies-file", default=COOKIES_PATH)
+
+    # allow legacy parsing from scripts/ as "python xhs_engage.py <positional>"
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("--"):
+        sys.argv.insert(1, "--action")
+
     args = parser.parse_args()
 
     if args.action == "history":
-        show_history(load_history())
+        history = load_history()
+        for action_type in ("likes", "comments", "follows"):
+            entries = history.get(action_type, [])[-10:]
+            print(f"\n{action_type.upper()} (last {len(entries)}):")
+            for e in entries:
+                print(f"  [{e['timestamp']}] {e.get('target', '')}")
         return
 
     if args.action == "browse":
-        cookies = load_cookies(args.cookies_file)
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, args=["--disable-blink-features=AutomationControlled", "--no-sandbox"])
-            context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="zh-CN")
-            context.add_cookies(cookies)
-            page = context.new_page()
-            topics = browse_trending(page, args.category, args.limit)
-            print(f"\nTrending topics in '{args.category}':")
-            for i, topic in enumerate(topics, 1):
-                print(f"  [{i}] {topic['topic']}  {topic['stats']}")
-            browser.close()
+        browse_trending(category=args.category, limit=args.limit)
         return
 
     if args.action == "auto-engage":
-        if not args.keyword:
-            print("ERROR: --keyword is required")
-            sys.exit(1)
-        auto_engage_cdp(args.keyword, args.likes, args.comments, args.cdp, args.niche)
+        auto_engage_cdp(
+            keyword=args.keyword,
+            max_likes=args.likes,
+            max_comments=args.comments,
+            cdp_url=args.cdp,
+            niche=args.niche,
+        )
         return
 
-    if args.action in ("like", "comment"):
-        if not args.note_url:
-            print("ERROR: --note-url is required")
-            sys.exit(1)
-        with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(args.cdp)
-            context = browser.contexts[0]
-            page = context.new_page()
-            page.goto(args.note_url, wait_until="commit", timeout=60000)
-            time.sleep(6)
-            if args.action == "like":
-                result = like_post_cdp(page)
-                print(f"Like result: {result}")
-            elif args.action == "comment":
-                if not args.message:
-                    print("ERROR: --message is required")
-                    sys.exit(1)
-                success, detail = comment_post_cdp(page, args.message)
-                print(f"Comment result: {detail}")
-            page.close()
-            browser.close()
-        return
-
-
-def load_cookies(cookies_file):
-    if not os.path.exists(cookies_file):
-        print(f"ERROR: Cookies file not found: {cookies_file}")
-        sys.exit(1)
-    with open(cookies_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+    # Single-action helpers (like / comment / post)
+    browser, context, page = make_browser_page(cookies_file=args.cookies_file, cdp_url=args.cdp)
+    try:
+        if args.action == "like":
+            # navigate first via URL or use helper
+            page.goto(args.note_url, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
+            time.sleep(3)
+            print(like_post_cdp(page))
+        elif args.action == "comment":
+            page.goto(args.note_url, wait_until="commit", timeout=PAGE_TIMEOUT_MS)
+            time.sleep(3)
+            print(comment_post_cdp(page, args.message))
+    finally:
+        browser.close()
 
 
 if __name__ == "__main__":
