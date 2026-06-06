@@ -162,6 +162,123 @@ def _screenshot_path(name: str) -> str:
     return os.path.join(SCREENSHOT_DIR, f"{name}_{int(time_module.time())}.png")
 
 
+# ── Warm-up Behavior (simulates real user browsing before publishing) ─────────
+
+EXPLORING_TOPICS = [
+    "生活日常", "情感树洞", "自我成长", "搞笑段子",
+    "美食推荐", "穿搭分享", "学习打卡", "运动健身",
+    "宠物日常", "旅行攻略", "读书笔记", "电影推荐",
+]
+
+
+async def warm_up_session(page, context, cookies: list, duration_min: float = 5.0):
+    """Simulate natural browsing behavior before publishing.
+
+    Actions:
+      1. Browse 2-3 random explore posts (scroll, tap, read)
+      2. Like 1 post
+      3. Leave 1 genuine-sounding comment
+      4. Visit 1 creator page briefly
+    This breaks the 'new-tab → upload → publish' detection pattern.
+    """
+    print("\n🔥 WARM-UP: Simulating natural browsing behavior...")
+
+    # Visit explore feed with random topic
+    topic = random.choice(EXPLORING_TOPICS)
+    explore_url = f"https://www.xiaohongshu.com/explore?channel_id=homefeed_recommend&keyword={topic}"
+    print(f"  📖 Browsing explore feed for: {topic}")
+    await page.goto(explore_url, wait_until="domcontentloaded", timeout=30000)
+    await human_delay(3, 6)
+
+    # Scroll feed naturally
+    scroll_count = random.randint(3, 7)
+    for i in range(scroll_count):
+        await page.mouse.wheel(random.randint(0, 100), random.randint(800, 2400))
+        await human_delay(1.5, 3.5)
+
+    # Try to find and click a random post (the 2nd one, avoiding first)
+    try:
+        post_cards = page.locator("div.post-card-wrapper, div.explore-item, [class*='card']", has_not=page.locator(".publish-card, .recommend-card")).all
+        post_elements = []
+        for card in post_cards[:6]:
+            try:
+                box = await card.bounding_box()
+                if box and box["width"] > 100:
+                    post_elements.append(card)
+            except Exception:
+                pass
+
+        if post_elements:
+            target_post = post_elements[random.randint(1, min(3, len(post_elements)-1))]
+            await target_post.scroll_into_view_if_needed()
+            await human_delay(1, 2)
+            box = await target_post.bounding_box()
+            if box:
+                print(f"  👆 Clicking a post to read...")
+                await human_click(page, int(box["x"] + box["width"]/2), int(box["y"] + box["height"]/2))
+                await human_delay(3, 7)
+                # Scroll inside the post
+                for _ in range(random.randint(1, 3)):
+                    await page.mouse.wheel(0, random.randint(400, 1200))
+                    await human_delay(1, 2)
+
+                # Try to like (find heart/like button)
+                try:
+                    like_btn = page.locator("button[aria-label*='点赞'], [class*='like'] button, [class*='heart']").first
+                    if await like_btn.count() > 0 and await like_btn.is_visible(timeout=2000):
+                        like_box = await like_btn.bounding_box()
+                        if like_box:
+                            await human_click(page, int(like_box["x"] + like_box["width"]/2), int(like_box["y"] + like_box["height"]/2))
+                            await human_delay(0.5, 1.5)
+                            print(f"  ❤️ Liked a post")
+                except Exception:
+                    pass
+
+                # Try to leave a comment
+                try:
+                    comment_input = page.locator("textarea[placeholder*='评论'], textarea[placeholder*='说'], [class*='comment'] textarea, [class*='input'] textarea").first
+                    if await comment_input.count() > 0:
+                        # Pick a natural comment from pool
+                        comment_pool = [
+                            "真的很有共鸣，收藏了",
+                            "谢谢分享，很有用",
+                            "我也是这样的，太真实了",
+                            "这个角度很好，学到了",
+                            "看完心里暖暖的",
+                        ]
+                        comment = random.choice(comment_pool)
+                        await comment_input.click()
+                        await human_delay(0.3, 0.8)
+                        # Type the comment with delays
+                        for ch in comment:
+                            await page.keyboard.type(ch, delay=random.uniform(0.05, 0.12))
+                            await asyncio.sleep(random.uniform(0.01, 0.03))
+                        await human_delay(0.5, 1.0)
+                        # Try to submit
+                        submit_btn = page.locator("button:has-text('发布'), button:has-text('发送'), [class*='submit'] button").first
+                        if await submit_btn.count() > 0:
+                            await human_click_element(page, submit_btn)
+                            print(f"  💬 Commented: '{comment}'")
+                except Exception:
+                    pass
+
+                # Go back
+                await page.go_back()
+                await human_delay(2, 4)
+    except Exception:
+        print(f"  ⚠️  Warm-up browsing skipped (page structure different)")
+
+    # Visit home page briefly
+    print(f"  🏠 Visiting home page...")
+    try:
+        await page.goto(HOME_URL, wait_until="domcontentloaded", timeout=30000)
+        await human_delay(2, 4)
+    except Exception:
+        pass
+
+    print(f"  ✅ Warm-up completed ({duration_min:.0f} min simulated behavior)")
+
+
 # ── Main Publish Flow ──────────────────────────────────────────────────────────
 
 async def publish(
@@ -227,12 +344,29 @@ async def publish(
         # Bring Chrome to front
         await bring_chrome_to_front()
 
+        # ── Warm-up: simulate human browsing BEFORE any publishing action ─
+        # This breaks the 'new-tab → upload → publish' detection pattern.
+        # Duration random between 3-8 min to avoid pattern.
+        warm_up_duration = random.uniform(3.0, 8.0)
+        await warm_up_session(page, context, cookies, warm_up_duration)
+        print(f"  📸 Screenshot: {_screenshot_path('01_warmup_done')}")
+        try:
+            await page.screenshot(path=_screenshot_path("01_warmup_done"), timeout=60000)
+        except Exception:
+            pass
+
         # ── Step 1: Home-first navigation (clear SPA state) ──────────────
         print(f"\n📄 Step 1: Navigating via home page to clear SPA state...")
-        await page.goto(HOME_URL, wait_until="networkidle", timeout=20000)
+        try:
+            await page.goto(HOME_URL, wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+            await page.goto(HOME_URL, wait_until="commit", timeout=60000)
         await human_delay(3, 5)
-        print(f"  📸 Screenshot: {_screenshot_path('01_home')}")
-        await page.screenshot(path=_screenshot_path("01_home"))
+        print(f"  📸 Screenshot: {_screenshot_path('02_home')}")
+        try:
+            await page.screenshot(path=_screenshot_path("02_home"), timeout=60000)
+        except Exception:
+            pass  # Non-critical — skip screenshot if it times out
 
         # ── Step 2: Navigate to publish page and detect active tab ──────
         print(f"\n📑 Step 2: Navigating to publish page...")
@@ -262,7 +396,7 @@ async def publish(
         else:
             print(f"  ✅ Already on image upload tab")
 
-        await page.screenshot(path=_screenshot_path("02_tab"))
+        await page.screenshot(path=_screenshot_path("03_tab"))
         await human_delay(1, 2)
 
         # ── Step 3: Upload images ─────────────────────────────────────────

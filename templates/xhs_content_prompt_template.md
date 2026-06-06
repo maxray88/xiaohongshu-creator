@@ -59,9 +59,15 @@ For each cover, describe:
 - CTA question
 - Color mood (warm/cool, specific hex if possible)
 
-### 4. Interaction & CTA
-- End with a clever, low-friction question to force people to comment
-- NOT a yes/no question - ask for personal stories or opinions
+### 4. Interaction & CTA — Drive Comments Organically
+- **The goal**: Every post must make someone WANT to reply, not just "oh I will save it"
+- **3 proven comment-driving techniques** (pick ONE per post):
+  1. **Open vulnerability**: "我最大的翻车经历是……轮到你了" — share a small embarrassment and invite theirs
+  2. **Contrarian stance**: "我觉得XX其实没那么好" — state a slightly controversial opinion people want to debate
+  3. **Fill-in-the-blank**: "如果只能带走一样东西，我会选______" — super low-friction
+- **NEVER** use: "点赞关注收藏" / "评论区告诉我" / "大家怎么看" — these are AI fingerprints
+- **DO** use: a genuine question that sounds like something you'd text a friend
+- **The golden rule**: if your CTA can be answered with just "是的/好的/一样" — rewrite it. Good CTAs require a micro-story to answer.
 
 ### 5. Optimized Hashtags (10 total)
 - Mix of broad + niche + trending + content-specific

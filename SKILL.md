@@ -42,8 +42,9 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── playwright-environment.md          # Technical reference
 │   ├── xiaohongshu-publish-page-deep-dive.md  # Publish page DOM deep reference
 │   ├── best-practices.md                  # Best practices & pitfalls
-│   ├── cdp-mode-with-patchright.md       # CDP + Patchright setup
-│   ├── image-acquisition-and-composition.md  # Image acquisition guide
+- `references/cdp-mode-with-patchright.md`      # CDP + Patchright setup
+- `references/ai-detection-failure-2026-06-03.md` # Multi-layer detection failure & recovery
+- `references/image-acquisition-and-composition.md`  # Image acquisition guide
 │   ├── openverse-search-findings.md         # Openverse search limitations for anime characters
 │   ├── xiaohongshu-mcp-server-setup.md   # MCP server setup
 │   ├── session-learnings-2026-05-15.md   # Session learnings (2026-05-15)
@@ -60,6 +61,7 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── session-learnings-2026-05-25.md   # Session learnings (2026-05-25) — cron session validation, title truncation, draft save failure
 │   ├── session-learnings-2026-05-28.md   # Session learnings (2026-05-28) — cookie injection failure
 │   ├── session-learnings-2026-05-29.md   # Session learnings (2026-05-29) — `_onSave()` method, multiple page context issue
+│   ├── session-learnings-2026-06-03.md   # Session learnings (2026-06-03) — `_onSave()` degradation, `pages[0]` vs `pages[-1]`, session recovery limits
 │   ├── feishu-channel-notification.md     # Feishu IM channel messaging for publish reports
 │   ├── github-workflow.md                # GitHub upload workflow
 │   ├── cover-style-s6-optimized.md       # Approved warm paper texture style with keyword highlighting
@@ -577,6 +579,17 @@ The skill is maintained at: https://github.com/maxray88/xiaohongshu-creator
 
 See `references/github-workflow.md` for upload/push workflow.
 
+### Hermes运行副本同步
+
+当本仓库更新后，同步到当前 Hermes 正在使用的 skill 副本：
+
+```bash
+bash ~/.hermes/skills/xiaohongshu-creator/scripts/push_skill_update.sh
+# 对比确认后执行 git push origin main 到远端
+```
+
+脚本目标路径：`~/.hermes/skills/social-media/make-money-xiaohongshu/skill/`
+
 ## Content Strategy
 
 Content strategy is **orthogonal** to publishing mechanics. The same pipeline (content → images → publish → analytics) works for any content vertical.
@@ -651,7 +664,47 @@ else:
 rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 ```
 
-## Troubleshooting
+## Anti-AI-Detection: Critical Failure Mode (2026-06-03)
+
+### The "Save Draft Triggers Fraud Detection" Failure
+**Symptom**: Even `draft_only=True` (save-as-draft mode) triggers account restriction/banning. User reported: "草稿保存就触发风控/限号". Past auto-publish attempts also resulted in restricted traffic.
+
+**Root Cause Analysis**: Xiaohongshu's AI/bot detection is multi-layered:
+1. **Browser fingerprint**: CDP channel detection (Chrome DevTools artifacts, `navigator.webdriver` — even with CDP mode, the `--remote-debugging-port` flag may be detectable)
+2. **Behavioral sequence**: Fixed pattern (login → upload → fill title → fill content → save/publish → close) — predictable regardless of Bezier mouse curves
+3. **Content fingerprint**: AI-generated text has detectable semantic patterns (even with humanization rules)
+4. **Temporal patterns**: Cron-triggered operations have statistical time-distribution patterns humans don't match
+5. **Session context**: Fresh session cookie + immediate script action = anomalous
+
+**Critical finding**: Anti-detection mouse movement (Bezier curves, random delays) **only addresses layer 1 partially**. It does NOT prevent detection at layers 2-5. The user's account has already been flagged from past auto-publish attempts.
+
+### Recommended Solution: Material-Only Automation
+**Convert cron jobs to "content generation only" — NO browser interaction.**
+
+```
+Modified workflow (SAFE):
+├── Cron triggers: generates cover image + content text
+├── Saves to /tmp/xhs_covers/dayXX.png + /tmp/xhs_content/dayXX.txt
+├── Sends Feishu notification with preview
+└── ❌ NO browser, NO CDP, NO xhs_publish.py call
+```
+
+**Before any automation touches the browser again**:
+1. Stop ALL cron jobs that call xhs_publish.py
+2. Let flagged account "rest" 2-4 weeks with zero automation
+3. For new accounts: first 30 days must be 100% manual posting
+4. Post-30-day: automation can resume in "material-only" mode (generate → notify → manual upload)
+
+### What Firefox Anti-Detect Would Change
+- ✅ Solves: browser fingerprint layer (navigator.webdriver, CDP artifacts)
+- ❌ Doesn't solve: behavioral sequence, content fingerprint, temporal patterns, account history
+- **Net improvement**: partial (1/3 of detection vectors). Not worth the rewrite cost given existing Chrome DOM selectors are battle-tested.
+
+### Pre-Publish Checklist Enhanced
+Add these to the existing checklist:
+- [ ] **Automation mode**: If script is calling xhs_publish.py, verify account is NOT previously restricted
+- [ ] **Fresh account rule**: New accounts must have 30+ days of manual posting before ANY automation
+- [ ] **Browser isolation**: Never use the same Chrome profile for both CDP automation and casual browsing
 
 | Problem | Solution |
 |---------|----------|
@@ -693,11 +746,40 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
 | **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
 | **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
-| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. Use `browser.contexts[0].pages[-1]` for latest, or iterate to find the page with your filled form. See `references/session-learnings-2026-05-29.md`. |
+| **`_onSave()` returns ok but draft never appears** | **Session degradation from repeated CDP reconnects.** After 3+ `connect_over_cdp()` cycles on the same Chrome debug port, `_onSave()` returns `save-ok` but the draft silently fails to persist server-side. Fix: close Chrome (`--user-data-dir=/tmp/chrome-debug`), restart fresh, `xhs_login.py --manual`. See `references/session-learnings-2026-06-03.md`. |
+| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. The **correct target page is `ctx.pages[0]`** — the original first page with form state, NOT `ctx.pages[-1]` which resolves to the last-created blank upload page. Always iterate and pick the one with an active title input (verify via `page.evaluate("document.querySelector('#title')?.value")`). See `references/session-learnings-2026-06-03.md`. |
 | Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
 | `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
-| `ECONNREFUSED 127.0.0.1:9222` on publish | Chrome debug port not running. Start with `--remote-debugging-port=9222`. Check: `lsof -i :9222`. |
+| `hermes cron create` fails — "unknown command" | The `hermes` binary is for interactive sessions only. Cron jobs must be managed via the **`cronjob` MCP tool** (in tools, not CLI). Use `cronjob(action='create')` in the conversation tool call, NOT shell commands. |
+| Cron job schedule wrong / never fires | **Schedule format** for `cronjob` tool: ISO timestamp WITHOUT "once at" prefix. Correct: `2026-06-05T14:00:00+08:00`. Wrong: `at 2026-06-05 14:00` or `once at 2026-06-05T14:00:00`. |
+| Subagent created cron jobs with short/generic prompts | **Subagent prompt truncation pitfall**: Subagents sometimes replace explicit detailed prompts with short generic versions. Put complete prompts directly in cron jobs; create in batches of ≤5 (not 10+ in parallel) to avoid truncation + rate limiting. |
+| Cron API 429 rate limiting when creating many jobs | Creating 10+ cron jobs in parallel hits 429. Create in groups of ≤5 via `cronjob` tool calls in the main conversation. |
+
+## Schedule Parameter for Cron Jobs
+
+When creating cron jobs via `cronjob(action='create')`, `schedule` accepts ISO timestamps:
+
+| Format | Example | |
+|--------|---------|---|
+| ISO timestamp | `2026-06-05T14:00:00+08:00` | **Correct** |
+| `at YYYY-MM-DD HH:MM` | `at 2026-06-05 14:00` | NOT supported |
+| `once at YYYY-MM-DD HH:MM` | `once at 2026-06-05 14:00` | causes errors |
+
+One-shot: `schedule="2026-YYYY-MM-DDTHH:MM:SS+08:00"`. Recurring: cron expr, e.g. `"0 14 * * *"`.
+
+## Cron Job Management
+
+**Do NOT use shell commands** — `hermes` has no `cron` subcommand. Use `cronjob` MCP tool:
+
+| Op | Action |
+|----|--------|
+| Create | `cronjob(action='create')` |
+| List | `cronjob(action='list')` |
+| Delete | `cronjob(action='remove')` |
+| Pause/Resume | `cronjob(action='pause/resume')` |
+
+Cron job prompts must be **fully self-contained** — jobs run in fresh sessions with no prior context.
 
 ## Anti-Detection Technical Guidelines
 
@@ -726,7 +808,8 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
 | **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
 | **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
-| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. Use `browser.contexts[0].pages[-1]` for latest, or iterate to find the page with your filled form. See `references/session-learnings-2026-05-29.md`. |
+| **`_onSave()` returns ok but draft never appears** | **Session degradation from repeated CDP reconnects.** After 3+ `connect_over_cdp()` cycles on the same Chrome debug port, `_onSave()` returns `save-ok` but the draft silently fails to persist server-side. Fix: close Chrome (`--user-data-dir=/tmp/chrome-debug`), restart fresh, `xhs_login.py --manual`. See `references/session-learnings-2026-06-03.md`. |
+| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. The **correct target page is `ctx.pages[0]`** — the original first page with form state, NOT `ctx.pages[-1]` which resolves to the last-created blank upload page. Always iterate and pick the one with an active title input (verify via `page.evaluate("document.querySelector('#title')?.value")`). See `references/session-learnings-2026-06-03.md`. |
 | Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |
 | Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles (88px font, 128px circle) or `--kp-image-queries` for per-key-point theme images (128px circle-cropped). |
@@ -742,11 +825,40 @@ rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
 | **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
 | **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
 | **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
-| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. Use `browser.contexts[0].pages[-1]` for latest, or iterate to find the page with your filled form. See `references/session-learnings-2026-05-29.md`. |
+| **`_onSave()` returns ok but draft never appears** | **Session degradation from repeated CDP reconnects.** After 3+ `connect_over_cdp()` cycles on the same Chrome debug port, `_onSave()` returns `save-ok` but the draft silently fails to persist server-side. Fix: close Chrome (`--user-data-dir=/tmp/chrome-debug`), restart fresh, `xhs_login.py --manual`. See `references/session-learnings-2026-06-03.md`. |
+| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. The **correct target page is `ctx.pages[0]`** — the original first page with form state, NOT `ctx.pages[-1]` which resolves to the last-created blank upload page. Always iterate and pick the one with an active title input (verify via `page.evaluate("document.querySelector('#title')?.value")`). See `references/session-learnings-2026-06-03.md`. |
 | Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
 | **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
 | `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
-| `ECONNREFUSED 127.0.0.1:9222` on publish | Chrome debug port not running. Start with `--remote-debugging-port=9222`. Check: `lsof -i :9222`. |
+| `hermes cron create` fails — "unknown command" | The `hermes` binary is for interactive sessions only. Cron jobs must be managed via the **`cronjob` MCP tool** (in tools, not CLI). Use `cronjob(action='create')` in the conversation tool call, NOT shell commands. |
+| Cron job schedule wrong / never fires | **Schedule format** for `cronjob` tool: ISO timestamp WITHOUT "once at" prefix. Correct: `2026-06-05T14:00:00+08:00`. Wrong: `at 2026-06-05 14:00` or `once at 2026-06-05T14:00:00`. |
+| Subagent created cron jobs with short/generic prompts | **Subagent prompt truncation pitfall**: Subagents sometimes replace explicit detailed prompts with short generic versions. Put complete prompts directly in cron jobs; create in batches of ≤5 (not 10+ in parallel) to avoid truncation + rate limiting. |
+| Cron API 429 rate limiting when creating many jobs | Creating 10+ cron jobs in parallel hits 429. Create in groups of ≤5 via `cronjob` tool calls in the main conversation. |
+
+## Schedule Parameter for Cron Jobs
+
+When creating cron jobs via `cronjob(action='create')`, `schedule` accepts ISO timestamps:
+
+| Format | Example | |
+|--------|---------|---|
+| ISO timestamp | `2026-06-05T14:00:00+08:00` | **Correct** |
+| `at YYYY-MM-DD HH:MM` | `at 2026-06-05 14:00` | NOT supported |
+| `once at YYYY-MM-DD HH:MM` | `once at 2026-06-05 14:00` | causes errors |
+
+One-shot: `schedule="2026-YYYY-MM-DDTHH:MM:SS+08:00"`. Recurring: cron expr, e.g. `"0 14 * * *"`.
+
+## Cron Job Management
+
+**Do NOT use shell commands** — `hermes` has no `cron` subcommand. Use `cronjob` MCP tool:
+
+| Op | Action |
+|----|--------|
+| Create | `cronjob(action='create')` |
+| List | `cronjob(action='list')` |
+| Delete | `cronjob(action='remove')` |
+| Pause/Resume | `cronjob(action='pause/resume')` |
+
+Cron job prompts must be **fully self-contained** — jobs run in fresh sessions with no prior context.
 
 ## Anti-Detection Technical Guidelines
 
