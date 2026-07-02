@@ -13,7 +13,340 @@ metadata:
 
 # Xiaohongshu Creator Automation & Marketing
 
-Automate login, publishing, analytics, hashtag research, and engagement on the Xiaohongshu creator platform using Playwright.
+Automate login, publishing, analytics, hashtag research, and engagement on the Xiaohongshu creator platform.
+
+## ⭐ Pitfalls: Cron-driven Draft Save (verified 2026-06-27, must-fix errors)
+
+Five mistakes can make a perfectly installed opencli + 静坐着呢的情绪树洞 stack silently skip draft saving for **days** without any visible error. Hit on 2026-06-27, fixing the broken cron `ebf775e37292` (情绪树洞-每日保存草稿). A fourth mistake (manifest schema split — body moved to post_data.json) was added 2026-06-27 after the cron re-ran into it. A fifth (--window background breaks image upload) was found 2026-07-01. See Mistakes #1–#5 below. Prompts that say `opencli browser treehole open https://...` fail with `RuntimeError: Connection error` even when `opencli doctor` shows everything green — `treehole` is not a real profile alias. Always resolve the profile via `opencli doctor | grep Profiles` and use the real alias (typical: `pjmvbend`). The error message is misleading: it points at network when the cause is naming. **`xiaohongshu publish` (the high-level command) sidesteps this entire class of issue** — use it instead.
+
+**2. `--topics <chinese-tag>` is a silent half-failure.** `opencli xiaohongshu publish --topics 情绪树洞,...` returns a YAML error `Could not attach topic "情绪树洞": no real topic entity appeared after selection`. But the partial state is worse than a clean error: opencli creates a draft with `title` and `images` populated yet `content` left as an empty string on disk. Verify by `opencli xiaohongshu drafts -f yaml` — `text_preview` will be empty. **Fix:** skip `--topics` entirely; append `#tag1 #tag2 ...` to the body string. Xiaohongshu auto-parses trailing hashtags from the body and works the same.
+
+**3. `[SILENT]` swallows the failure you most need to see.** A draft-save cron that returns `[SILENT]` when manifest.json is missing is technically quiet but operationally invisible — the user only learns "skipped" when they open the Xiaohongshu creator console manually. **Refactor:** the cron should always report either a concrete success (id, image count, time) or an explicit "今天 $DATE 没有 manifest.json, 跳过" path. Never `[SILENT]` for a save-as-draft job — silence is the failure mode.
+
+Reproducible recipe and one-line fix patches live in `references/opencli-cron-pitfalls.md`. Any new cron saving drafts to 静坐着呢的情绪树洞 should re-read that file first.
+
+## ⭐ CRITICAL: Browser Tool Priority (2026-06-21+)
+
+**OpenCLI is the PRIMARY browser tool for all Xiaohongshu automation.** Use `opencli browser <session> *` commands for every browser interaction — login, publish, draft save, upload images, etc.
+
+- `opencli browser <session> open <url>` — open page (creates/owns session)
+- `opencli browser <session> state` — snapshot DOM with refs
+- `opencli browser <session> click <target>` — click by ref or CSS selector
+- `opencli browser <session> type/fill <target> <text>` — input text
+- `opencli browser <session> eval "<js>"` — evaluate arbitrary JS in page context (escape inner quotes as `"`)
+- `opencli browser <session> screenshot [path]` — capture viewport
+
+**NEVER use** `computer_use`, `browser_*` tools, or Playwright CDP for Xiaohongshu publishing. OpenCLI is the only approved tool for all browser automation on this platform.
+
+### Verified High-Level Publish Command
+```bash
+opencli xiaohongshu publish "正文内容" \
+  --title "标题" \
+  --images /path/cover_01.jpg,/path/cover_02.jpg
+```
+Constraints: max 9 images, title ≤20 chars, Chrome must be logged into creator center under the bound Browser Bridge profile.
+
+### Login Verification (REQUIRED before publish)
+```bash
+opencli browser <session> open "https://www.xiaohongshu.com/user/profile/me"
+opencli browser <session> get url
+```
+If URL contains `/login?redirectPath=...`, the session is **NOT logged in**. Stop and ask the user to log in via Chrome.
+
+**Pitfall**: `opencli doctor` showing `[OK] Extension: connected` only verifies Browser Bridge connectivity. It does **not** verify that Chrome is logged into xiaohongshu.com. Always run the profile check above.
+
+### Session Naming Convention
+Discover the active session/profile from `opencli doctor` output under **Profiles**. Use the exact alias shown there (e.g., `pjmvbend`), not a hardcoded name like `treehole`, unless the user explicitly names a different session. Stable multi-step flows can use a consistent session name per task (e.g., `xhs-publish`, `xhs-warmup`).
+
+### Bind Existing Tabs
+For logged-in pages, use `opencli browser <session> bind` to attach to an existing Chrome tab. Bound sessions persist until unbind/tab close.
+
+- `references/opencli-xhs-workflow.md` — The complete OpenCLI → Xiaohongongshu publish workflow
+- `references/opencli-cron-pitfalls.md` — Verified 2026-06-27: four cron pitfalls (hardcoded session name / `--topics` empty-content bug / `[SILENT]` swallowed failures / manifest schema split → body lives in `post_data.json`) and the high-level publish recipe
+
+### Validated content and image pipeline
+```bash
+PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+
+# 1. Content generation (no emoji required by spec)
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
+  --topic "野原美冴的日常小趣事" --style warm --emoji "" \
+  --output /tmp/xhs_treehole/day_YYYYMMDD
+```
+
+```bash
+# 2. HyperFrames render (preferred)
+hyperframes render \
+  -o /tmp/xhs_treehole/day_YYYYMMDD/images/cover_01_main.jpg \
+  --template emotional-treehole-cover \
+  --width 1080 --height 1920 --theme starry-night
+```
+
+```bash
+# 3. Image compression trigger (REQUIRED when blob is large)
+# Rule: compress when a single image >150KB or total >300KB
+ffmpeg -y -i INPUT -vf "scale=640:-2" -q:v 60 OUTPUT
+```
+
+```bash
+# 4. OpenDesign convert (headless only)
+opendesign convert -i <file.octopus> -o <output.png>
+# NOT in cron: opendesign open (GUI)
+```
+
+```bash
+# 5. Publish + verify
+opencli xiaohongshu publish "正文内容" --title "标题" --images /path/a.jpg,/path/b.jpg
+opencli xiaohongshu creator-notes-summary --limit 1
+```
+
+### Project-specific rules (情绪树洞, account: 静坐着呢的情绪树洞)
+- **Style**: 手绘风/自然感, 无 emoji, anti-AI detection.
+- **Size**: 单张 ≤150KB, 总 payload ≤300KB.
+- **card-xiaohongshu template**: 1080×1440 (3:4), 3-18 张 (常用 6-9 张), 封面大字宽距 + 正文分卡 + CTA, 每张右下角作者/日期.
+- **tab switching**: use `opencli browser <session> eval` with element.click() for tabs — do *not* use `opencli click` for tab switches.
+
+---
+
+## Alternative: OpenCLI High-Level Publish Command
+
+The OpenCLI Xiaohongshu adapter provides a high-level `publish` command that abstracts the UI automation:
+
+```bash
+opencli xiaohongshu publish "正文内容" --title "标题" --images ./a.jpg,./b.png
+# Text-image cards:
+opencli xiaohongshu publish "正文内容" --title "标题" --card-text "第一张\\n第二行|||第二张" --card-style 边框
+```
+
+**This command still requires Chrome to be logged into creator center** under the bound Browser Bridge profile, but it reduces manual UI ref hunting. Use it when the account is known to be logged in and stable. If it fails with login redirects, fall back to the detailed UI workflow in `references/opencli-xhs-workflow.md`.
+
+**Image-size failure signature**: if publish fails with `fetch failed` / `write EPIPE`, first compress images: `ffmpeg -y -i INPUT -vf "scale=640:-2" -q:v 60 OUTPUT`. Keep single image ≤150KB and total payload ≤300KB.
+
+### Pitfalls (verified, 2026-06-27 情绪树洞 自动保存链路踩坑记录)
+
+**Pitfall 1 — `--topics` 会让 publish 流程半途终止并清空 content 字段.**
+症状: `error: "Could not attach topic \"<词>\": no real topic entity appeared after selection"`. 即使 publish 的 `status` 最终变 `✅ 暂存成功`, 草稿里 `content` 字段会被截为 **空字符串**, `images` 还有, 但没有正文. 这是最隐蔽的失败模式 — UI 上看起来"成功了".
+
+根因: 小红书的话题库只能识别官方 / 已收录的话题. 自定义词 (如 `情绪树洞`, `野原美冴`) 找不到实体, opencli 会放弃流程后段.
+
+修复: **永远不要传 `--topics`**. 把所有 `#话题` 直接拼到正文末尾, 小红书会自动识别为 hashtag:
+
+```bash
+# 不要这么写
+opencli xiaohongshu publish "$BODY" --title "$T" \
+  --images "$IMGS" --topics "情绪树洞,心灵治愈,反内耗" --draft true
+
+# 这么写
+FULL_BODY="${BODY}
+
+${TAGS}"  # 例如: "#情绪树洞 #心灵治愈 #反内耗 ..."
+opencli xiaohongshu publish "$FULL_BODY" --title "$T" \
+  --images "$IMGS" --draft true
+```
+
+**Pitfall 2 — 不要硬编码 session 别名, e.g. `opencli browser treehole open ...`.**
+症状: 7 天连续 `RuntimeError: Connection error`. 这条错误不是网络问题, 是错把"自定义名字"当成"profile 别名"用.
+
+根因: opencli profile 别名是 **opencli doctor ➜ Profiles** 那行输出的小写字母数字 ID (用户的实例上是 `pjmvbend`). 其他名字 (`treehole`, `xhs-publish`, `xhs-draft-check` 等) 虽然能 accept, 但不会命中真实 Chrome session, 会触发 daemon 端 connection 失败.
+
+修复: 永远不要用 `opencli browser <session> *` 这条低层路径去做小红书发布. **只用高层 `opencli xiaohongshu publish --draft true`**. 这个高层命令不依赖任何 browser session 别名. 如确需浏览器层操作, 先 `opencli doctor` 查 `Profiles:` 下的别名, 然后用那个别名:
+
+```bash
+# 查看真实 profile
+opencli doctor | grep 'Profiles:' -A 2
+# 预期输出: • pjmvbend: connected v1.0.20
+SESSION=$(opencli doctor | grep -oE '• [a-z0-9]+:' | head -1 | tr -d '• :')
+echo "$SESSION"  # 输出: pjmvbend
+opencli browser "$SESSION" open "https://creator.xiaohongshu.com/publish/publish"
+```
+
+**Pitfall 3 — `[SILENT]` 别吞掉所有信号.**
+症状: 22:30 草稿保存 cron 连续一周"看起来正常" — last_status: ok, 但草稿箱里空空如也. 用户侧收到的消息是 0 条, 无法知道发生了什么.
+
+根因: prompt 写了 "若 manifest 不存在则直接跳过", 加 SILENT 模式, 让所有边缘场景 (manifest 不存在 / 网络抖 / UI 选择失败) 都静默吃完, 用户完全感知不到.
+
+修复: 草稿保存 / 发布类 cron **必须发报告**. 唯一可 [SILENT] 的场景是上一次执行就是几小时内且结果完全没变. 即使是 "今天没素材", 也要明确说 "今天 (YYYYMMDD) 没找到 manifest, 跳过草稿保存. 请检查上游 20:00 主任务" — 不能吃声.
+
+> Updated 2026-06-27: 三条 pitfall 由 ebf775e37292 cron 一周的失败回溯写出, 实战验证. 旧版 06-21 文档未涉及 `--topics` 这个隐藏陷阱, 此次补回.
+>
+> **Pitfall 5 (2026-07-01) — `--window background` causes image upload failure.** 使用 `--window background` 参数时 playwright 找不到文件上传 input 元素, 报 "Image injection failed: No file input found on page". 移除 `--window background` 即可恢复。注意: 该参数对 `xiaohongshu publish` 命令的 publish 流程影响较小 (无需在后台保持窗口, 整个流程只需几秒), 但 upload 流程需要可见窗口。修复: 不要传 `--window background`。
+
+## File Upload Workaround (JavaScript DataTransfer Injection)
+
+The `opencli browser <session> upload` command often returns `{"code":-32000,"message":"Not allowed"}` due to CDP security restrictions on file inputs.
+
+**Mandatory pattern** — use `opencli browser <session> eval` with a self-invoking function to build a `DataTransfer` + `File` list and assign it to the `input[type=file]` element, then dispatch `change`:
+
+```js
+(function(){
+  var fi=document.querySelector('input[type=file]');
+  var dt=new DataTransfer();
+  ['/path/a.jpg','/path/b.jpg'].forEach(function(p){
+    var blob=new Blob([new ArrayBuffer(1)], {type:'image/jpeg'});
+    dt.items.add(new File([blob], p.split('/').pop(), {type:'image/jpeg'}));
+  });
+  fi.files=dt.files;
+  fi.dispatchEvent(new Event('change'));
+})();
+```
+
+**Notes**:
+- Use an IIFE to avoid variable conflicts with page scripts that may declare `input` or `fileInput` as globals (known conflicts: `input`, `fileInput`).
+- The fake file content is sufficient to trigger the React re-render in many cases; if uploads still fail, re-generate compressed images first (≤150KB).
+- After upload, the page may navigate to `about:blank`; re-open the publish URL if needed.
+
+## HyperFrames + OpenDesign Content Creation Pipeline
+
+For image-text notes (图文笔记), use this verified flow matching the user's target spec (情绪树洞, 6 images, ≤150KB/image):
+
+### Step A: Content generation
+```bash
+PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
+  --topic "...", --style warm --emoji "" \
+  --output /tmp/xhs_treehole/day_YYYYMMDD
+```
+
+### Step B: HyperFrames static cover render (preferred)
+```bash
+hyperframes render \
+  -o /tmp/xhs_treehole/day_YYYYMMDD/images/cover_01_main.jpg \
+  --template emotional-treehole-cover \
+  --width 1080 --height 1920 --theme starry-night
+```
+Generate 6 variants: `cover_01_main.jpg` … `cover_06_cta.jpg`.
+
+### Step C: OpenDesign conversion (optional)
+If a `.octopus` design file exists locally or after HyperFrames render:
+```bash
+opendesign convert -i <file.octopus> -o <output.png>
+```
+Do **not** use `opendesign open` in cron/automation contexts; it launches a GUI viewer.
+
+**Open Design repo reference**: local clone at `/Users/maochundong/open-design/` contains `skills/card-xiaohongshu` template for 1080×1440 (3:4) knowledge cards. Repo build is currently blocked by Node 22 vs required ~24; see `references/opendesign-repo-status.md` for full details. Until build is fixed, use HyperFrames + the card-xiaohongshu style spec as a reference for palette/spacing/layout.
+
+### Step D: Image compression (REQUIRED before publish)
+```bash
+# Compress ALL images before publish to stay under limits
+ffmpeg -y -i INPUT -vf "scale=640:-2" -q:v 60 OUTPUT
+```
+Publish limits: single image ≤150KB, total payload ≤300KB. Default to compressing every image; failing to compress is the #1 cause of `fetch failed` / `write EPIPE` during publish.
+
+### Step E: Upload + Publish
+Prefer `opencli xiaohongshu publish --images ...` directly when images are already compressed and small.
+If the publish flow requires file upload in a *custom* web form, fall back to the JS DataTransfer eval.
+
+### Step F: Save as Draft (from manifest.json)
+When the user prefers manual review before publishing, save as draft instead. **Body lives in `post_data.json` (sibling of `manifest.json`), not in `manifest.json` itself** — the recipe below handles both schemas:
+```bash
+M="/tmp/xhs_treehole/day_YYYYMMDD/manifest.json"
+PD="${M%/*}/post_data.json"
+PC="${M%/*}/post_content.md"
+
+TITLE=$(python3 -c "import json; print(json.load(open('$M'))['title'])")
+TAGS=$(python3 -c "import json; d=json.load(open('$M')); print(' '.join(d['tags']))")
+IMAGES=$(python3 -c "import json; d=json.load(open('$M')); print(','.join(d['images']))")
+
+# body: post_data.json → post_content.md (skip H1) → manifest fallback
+if [ -f "$PD" ] && grep -q '"body"' "$PD" 2>/dev/null; then
+  BODY=$(python3 -c "import json; print(json.load(open('$PD'))['body'])")
+elif [ -f "$PC" ]; then
+  BODY=$(tail -n +3 "$PC")
+else
+  BODY=$(python3 -c "import json; d=json.load(open('$M')); print(d.get('body',''))")
+fi
+
+FULL_BODY="${BODY}
+
+${TAGS}"
+# --window background causes "Image injection failed: No file input found on page"
+opencli xiaohongshu publish "$FULL_BODY" \
+  --title "$TITLE" --images "$IMAGES" \
+  --draft true --site-session ephemeral \
+  -f yaml 2>&1 | tail -20
+```
+Verify with `opencli xiaohongshu drafts -f yaml`. Full reference: `references/draft-save-from-manifest.md`.
+Pitfalls: `references/opencli-cron-pitfalls.md` (5 mistakes — session alias, `--topics`, `[SILENT]`, manifest schema split, `--window background`).
+
+### Step F: Verify
+```bash
+opencli xiaohongshu creator-notes-summary --limit 1
+```
+
+## Video Rendering (HyperFrames)
+
+For animated video posts (视频笔记), use `xhs_hyperframes_video.py`:
+```bash
+python3 scripts/xhs_hyperframes_video.py \
+    --title "标题" --subtitle "副标题" --emoji "😭" \
+    --cta "你家娃也这样吗？" \
+    --bg /path/to/bg.jpg \
+    --output /tmp/xhs_video.mp4 --duration 8 --fps 30
+```
+Requires: HyperFrames CLI, FFmpeg, Chrome. Composition uses GSAP timelines with `data-composition-id`, `data-width`, `data-height` on root. Lint before render. Portrait 1080x1920 for Xiaohongshu video posts.
+
+## Login Verification Step (REQUIRED before publish)
+
+Before any publish or login-required flow, explicitly verify login state:
+
+```bash
+opencli browser <session> open "https://www.xiaohongshu.com/user/profile/me"
+opencli browser <session> get url
+```
+
+If the URL contains `/login?redirectPath=...`, the session is **NOT logged in**. Stop and prompt the user to log in via Chrome (scan QR code or SMS) rather than attempting to publish.
+
+**Pitfall**: `opencli doctor` showing `[OK] Extension: connected` only verifies Browser Bridge connectivity. It does **not** verify that Chrome is logged into xiaohongshu.com. Always run the profile check above.
+
+## Content Generation Pipeline
+
+For generating 6配图 + video covers per post:
+
+1. Content generation → `xhs_content_generator.py` (titles, body, hashtags, CTA)
+2. Cover/image generation → `xhs_hyperframes_video.py` (HTML→MP4 animated covers) OR HyperFrames CLI for static 1080×1920 JPG
+3. Optional design refinement → `opendesign convert` for `.octopus` assets
+4. Upload to Xiaohongshu → OpenCLI `upload` command (often blocked) OR `opencli browser <session> eval` JS DataTransfer injection
+
+Style: S6 warm paper texture with handwritten feel. No heavy AI glow effects.
+
+**Upload rule of thumb**: `opencli browser <session> upload` is frequently blocked by CDP security (`-32000 Not allowed`). Always have the JS DataTransfer eval fallback ready.
+
+## Cron Jobs Maintenance
+
+Xiaohongshu automation uses multiple cron jobs that can accumulate over time: content generation, draft saving, publishing, analytics, etc. Before updating or creating new jobs, always audit existing ones to avoid duplication.
+
+### Audit workflow
+1. Run `cronjob action='list'` to pull all jobs.
+2. Filter by name/skill to identify Xiaohongshu-related jobs.
+3. Check their schedules, states (paused/scheduled), and last run statuses. Look for overlapping responsibilities that should be consolidated.
+4. **Prune stale paused jobs**: paused jobs from old workflows often become noise. If a job has no useful next run, remove it rather than leave it paused forever. Use `cronjob action='remove' job_id="..."`.
+5. When updating a job, preserve its existing `schedule`, `repeat`, and `enabled` state unless the user explicitly asks to change them. Only update the `prompt`.
+
+### Verified prompt template (2026-06-21)
+When injecting the verified OpenCLI workflow into a cron job, include:
+- OpenCLI v1.8.4 context (profile alias, daemon port awareness)
+- Image compression trigger: pre-compress images when total size >300KB or single image >150KB using `ffmpeg -y -i INPUT -vf "scale=640:-2" -q:v 60 OUTPUT`
+- Publish command: `opencli xiaohongshu publish "正文内容" --title "标题" --images /path/a.jpg,/path/b.jpg`
+- Tool constraints: no `computer_use` or generic `browser_*` for Xiaohongshu; use `opencli browser <session> *` only when needed
+- Error handling: on publish failure, compress and retry once; if it fails again, abort and report
+- Post-publish verification: `opencli xiaohongshu creator-notes-summary --limit 1`
+
+See `references/cron-maintenance-notes.md` for the operational checklist and common overlap patterns observed in real deployments.
+
+## Recommended 2-Job Content Factory (情绪树洞, 2026-06-21)
+
+For accounts that generate and publish image-text notes daily, use this 2-job pipeline (draft-job `3b52050d1389` removed on 2026-06-21):
+
+| Time (CST) | Job ID example | Role |
+|------------|----------------|------|
+| 20:00 | `250be2028330` | 主内容生成：选题 → 正文 → HyperFrames 渲染 6 张主图 |
+| 21:30 | `d9578136eea3` | 副配图/深化：读取 20:00 素材 → 第二版配图或视频帧 |
+
+**Key rules**:
+- 20:00 and 21:30 must not write to the same directory (use `_v2` suffix for the second job).
+- If draft saving is needed later, re-add a 22:00 draft job reading from the latest manifest.
+- All sharing of the same Xiaohongshu login session under the same `opencli browser <session>` alias.
+- Human publishes manually from draft box; do not auto-publish.
 
 ## Architecture
 
@@ -21,31 +354,40 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 ~/.hermes/skills/xiaohongshu-creator/
 ├── SKILL.md # This file - main workflow
 ├── scripts/
-│ ├── xhs_config.py # Shared constants (URLs, selectors, paths, timeouts)
-│ ├── xhs_browser.py # Shared browser helpers (cookie I/O, CDP, factories)
-│ ├── xhs_utils.py # Shared interaction helpers (Bezier, delays, force_click)
-│ ├── xhs_auto_publish.py # 🚀 Orchestrator: content → images → publish (FULL PIPELINE)
-│ ├── xhs_content_generator.py # Viral content generator (titles + body + hashtags + cover designs)
-│   ├── xhs_image_pipeline.py             # All-in-one: search → download → cover render
-│   ├── xhs_publish.py                    # Publish: CDP → fill form → _onPublish() (v10, merged)
-│   ├── xhs_login.py                      # Login: open Chrome, save cookies
-│   ├── xhs_analytics.py                  # Analytics: account & post metrics
-│   ├── xhs_hashtags.py                   # Hashtag research & trending topics
-│   ├── xhs_comments.py                   # Comment management (list/reply/post via CDP)
-│   ├── xhs_engage.py                     # Engagement automation (auto-engage like+comment via CDP)
-│   └── render_covers.py                  # Cover image renderer (Playwright + HTML, standalone)
+│   ├── xhs_config.py # Shared constants (URLs, selectors, paths, timeouts)
+│   ├── xhs_browser.py # Shared browser helpers (cookie I/O, CDP, factories)
+│   ├── xhs_utils.py # Shared interaction helpers (Bezier, delays, force_click)
+│   ├── xhs_auto_publish.py # 🚀 Orchestrator: content → images → publish (FULL PIPELINE)
+│   ├── xhs_content_generator.py # Viral content generator (titles + body + hashtags + cover designs)
+│   │   ├── xhs_image_pipeline.py             # All-in-one: search → download → cover render
+│   │   ├── xhs_publish.py                    # Publish: CDP → fill form → _onPublish() (v10, merged)
+│   │   ├── xhs_login.py                      # Login: open Chrome, save cookies
+│   │   ├── xhs_analytics.py                  # Analytics: account & post metrics
+│   │   ├── xhs_hashtags.py                   # Hashtag research & trending topics
+│   │   ├── xhs_comments.py                   # Comment management (list/reply/post via CDP)
+│   │   ├── xhs_engage.py                     # Engagement automation (auto-engage like+comment via CDP)
+│   │   └── render_covers.py                  # Cover image renderer (Playwright + HTML, standalone)
+│   │   └── xhs_hyperframes_video.py          # HyperFrames HTML→MP4 video renderer (animated covers)
 ├── templates/
-│   └── xhs_content_prompt_template.md  # LLM prompt template for content generation (editable)
+│   │   └── xhs_content_prompt_template.md  # LLM prompt template for content generation (editable)
 ├── references/
+- `references/draft-save-from-manifest.md` — Save Xiaohongshu drafts from manifest.json using `--draft true`
+- `references/session-learnings-2026-06-20.md` — HyperFrames HTML→MP4 integration, lint error fixes
+- `references/session-learnings-2026-06-21.md` — Verified publish flow, image-size fix, DataTransfer workaround, commander UI navigation, tab-switch issue
+- `references/opencli-publish-workflow.md` — Current OpenCLI publish recipe and constraints on Xiaohongshu publishing tools
+- `references/opendesign-repo-status.md` — Open Design local repo path, build status, card-xiaohongshu template spec
+- `references/card-xiaohongshu-spec.md` — Design spec summary for 1080×1440 (3:4) cards used as an overlay guidance for HyperFrames output (copy from local OpenDesign repo)
 │   ├── xiaohongshu-content-gen.md        # Content generation guide & viral formula
 │   ├── xiaohongshu-marketing.md          # Marketing strategy guide
 │   ├── playwright-environment.md          # Technical reference
 │   ├── xiaohongshu-publish-page-deep-dive.md  # Publish page DOM deep reference
 │   ├── best-practices.md                  # Best practices & pitfalls
-- `references/cdp-mode-with-patchright.md`      # CDP + Patchright setup
-- `references/ai-detection-failure-2026-06-03.md` # Multi-layer detection failure & recovery
-- `references/image-acquisition-and-composition.md`  # Image acquisition guide
+│   ├── python311-standardization.md       # ⭐ Python 3.11 standard — NO hardcoded paths
+│   └── cdp-mode-with-patchright.md        # CDP + Patchright setup
+│   └── ai-detection-failure-2026-06-03.md # Multi-layer detection failure & recovery
+│   └── image-acquisition-and-composition.md  # Image acquisition guide
 │   ├── openverse-search-findings.md         # Openverse search limitations for anime characters
+│   ├── opencli-xhs-workflow.md            # OpenCLI → Xiaohongshu publish workflow
 │   ├── xiaohongshu-mcp-server-setup.md   # MCP server setup
 │   ├── session-learnings-2026-05-15.md   # Session learnings (2026-05-15)
 │   ├── session-learnings-2026-05-16.md   # Session learnings (2026-05-16)
@@ -67,820 +409,4 @@ Automate login, publishing, analytics, hashtag research, and engagement on the X
 │   ├── cover-style-s6-optimized.md       # Approved warm paper texture style with keyword highlighting
 │   ├── custom-cover-styling-technique.md # Advanced custom cover rendering (break default template limits)
 │   └── treehole-strategy.md              # Current strategy: 泛心理与情绪树洞
-
-**Anti-Detection Approach (do NOT rewrite from scratch):**
-When adding anti-detection to Xiaohongshu scripts:
-1. **Keep the existing proven logic** — original scripts have correct patterns (home-first navigation, tab detection, JS nativeSetter filling, `_onPublish()` trigger). These took many sessions to stabilize.
-2. **Inject anti-detection at key points only**: replace `page.click()` with Bezier mouse movement + human-like press, replace direct `page.type()` with per-character random delay, add random delays between critical steps, use `browser.contexts[0]` instead of `new_context()`.
-3. **Do NOT**: create new browser_controller abstractions that launch fresh Chrome, override User-Agent, use `add_init_script()`, or replace the entire script structure.
-4. **Do NOT use Python's HTTP stack for navigation** when in sandboxed environments — Chrome's network differs. Use `page.evaluate("window.location.href = '...'")` for CDP-connected pages instead of `page.goto()` from Python.
-```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
 ```
-
-**Data directory**: `~/.xiaohongshu-creator/` (cookies, session state)
-
-### Shared Modules (refactor 2026-05-31)
-
-Three shared modules now eliminate repeated cookie loading, CDP boilerplate, and
-browser setup across scripts:
-
-- `scripts/xhs_config.py` — canonical URLs, paths, selectors, timeouts
-- `scripts/xhs_browser.py` — `load_cookies`, `save_cookies`, `make_browser_page`, `resolve_cdp_ws_url`, `is_logged_in`
-- `scripts/xhs_utils.py` — `human_delay`, `bezier_move`, `force_click`, screenshot helpers
-
-All scripts add their own `scripts/` dir to `sys.path` and import from those
-modules. **When refactoring any script, first check what's already in
-`xhs_config` / `xhs_browser` / `xhs_utils` before adding more duplication.**
-
-See `references/refactor-modularization-2026-05-31.md` for the full rationale,
-module contracts, and what was deliberately left untouched.
-
-## Content Anti-Detection: Avoiding AI / Bot Flagging
-
-**Critical**: Even if you manually click "Publish", Xiaohongshu may flag your post
-as AI-generated or bot-operated based on **content characteristics**, **behavioral
-patterns**, and **environment fingerprints**.
-
-### Why "Manual Click" Is NOT Enough
-
-| Detection Layer | What It Catches | Your Manual Click Helps? |
-|-----------------|-----------------|--------------------------|
-| Content AI-scan | Text patterns, image style, structure | ❌ No — server-side, happens after upload |
-| Browser fingerprint | `navigator.webdriver`, CDP artifacts | ⚠️ Partially — only if you use a clean profile |
-| Behavioral pattern | Posting time, frequency, session habits | ✅ Yes — varies your behavior |
-| Device/IP reputation | Shared IPs, VPN fingerprints, cookies | ⚠️ Depends on environment |
-
-### Content "De-AI-ification" Rules
-
-When generating or reviewing any post body, enforce these rules:
-
-| AI 特征 | 人写特征 | 强制规则 |
-|---------|----------|----------|
-| 开头模板化 | 口语化、带自我怀疑/吐槽 | 第一句必须有"个人感受词"（我觉得、说实话、讲真、说句心里话） |
-| emoji 规律排列 | emoji 稀疏、位置随机 | 全篇 emoji ≤ 3 个，不在句末密集堆叠 |
-| 分段太整齐 | 长短不一 | 至少 1 段超过 3 行，偶尔连续短句 |
-| 无错别字/无语气词 | 带口语词、方言、省略 | 允许并鼓励：吧/呢/啊/嘛、1-2 处"非正式"表达 |
-| 结尾全是 CTA | 开放式结尾、反问 | 结尾用"你们呢？""有人懂吗？"替代"赶紧收藏关注" |
-| 图片完美对称 | 随手拍/局部图/自然角度 | 封面避免 AI 绘画感（光晕/厚描边/高饱和渐变） |
-| 完全无障碍 | 有"废话"和过渡 | 保留 1 句与主题弱相关的个人吐槽 |
-
-**Forbidden opening phrases** (high AI probability, do NOT use):
-- ❌ 姐妹们/集美们（作为开头）
-- ❌ 宝藏XX / 绝绝子 / yyds / 给我冲
-- ❌ 码住！收藏了！
-- ❌ 每一句末尾都有 emoji
-
-**Recommended opening patterns** (highly human-signal):
-- "今天试了下那个XX，说实话一开始我是拒绝的…"
-- "有没有人和我一样，XX的时候总在胡思乱想？"
-- "说句心里话，这个东西被吹得那么神我其实是半信半疑的…"
-- "昨晚刷到一个帖子，突然破防了。"
-
-### Behavioral Anti-Detection
-
-- **Randomize posting times**: Do not post at fixed cron schedules. Randomize within a 2-8 hour window.
-- **Pre-publish warm-up**: ~10 minutes before publishing, spend time on the platform (browse feed, like 2-3 posts, leave 1 casual comment). Do not open → fill form → publish → close.
-- **Avoid publish-only sessions**: An account that only writes and never reads/interacts is highly suspicious.
-- **Session recycling**: If using the same Chrome session for multiple publishes, occasionally fully close and restart Chrome to clear accumulated automation fingerprints.
-
-### Environment Hygiene
-
-- **Dedicated Chrome profile** for manual publishing: Create a separate Chrome profile that has **never** been controlled by Playwright/CDP. Use this exclusively for manual publishing.
-- **Avoid shared IPs**: Do not run multiple accounts from the same network simultaneously.
-- **Cookie age**: Cookies older than ~7 days are likely stale even if technically valid. Re-login periodically via `xhs_login.py --manual`.
-- **Separate CDP Chrome from browsing Chrome**: If you start Chrome with `--remote-debugging-port=9222` for automation, do NOT use that same window for casual browsing — the browsing history and interaction patterns will be tainted.
-
-### Pre-Publish Quality & Anti-Detection Checklist
-
-Before saving or publishing any post, verify every item:
-
-- [ ] Title ≤ 20 Chinese chars (emoji counted as characters; if title has emoji, ensure text portion ≤ 18 chars)
-- [ ] Body has 1+ personal-feeling opening sentence (我的感受词)
-- [ ] Total emojis ≤ 3, scattered across body (not 1 per line / not packed at end)
-- [ ] At least 1 paragraph has 3+ lines (break rigid 1-2 line rhythm)
-- [ ] Contains at least 1 casual grammar marker: 吧 / 呢 / 啊 / 嘛 / 嗯 / 诶
-- [ ] Opening does NOT start with 姐妹们 / 集美们 / 宝藏 / 绝绝子 / yyds
-- [ ] Closing is open-ended or rhetorical ("你们呢？" / "有人懂吗？"), NOT a direct CTA ("收藏关注")
-- [ ] Cover image looks hand-drawn / natural; not perfectly symmetric, not glowing, not high-saturation gradient
-- [ ] Session is fresh (re-login if cookies > 7 days old)
-- [ ] browsed / liked 1-2 posts earlier in this session before publishing (warm-up behavior)
-
-## Quality Gate: Self-Review Before Sharing
-
-**Always self-review outputs before sending to the user.** This is a hard requirement:
-1. **Cover images**: Open/preview covers visually before sending via Feishu. Check: font sizes readable, emoji rendering correctly, layout centered, overall aesthetic quality.
-2. **Content**: Read through generated titles and body text. Check: title ≤20 chars, body has proper hook/story/value/CTA structure, hashtags relevant.
-3. **Code/scripts**: Verify syntax with `py_compile` before declaring done.
-4. **Screenshots**: When publishing, review screenshots at each step to catch issues early.
-
-**Feishu image delivery — RELIABLE method**: The `MEDIA:/path` approach via `send_message` does NOT reliably deliver images. Use this workflow instead:
-1. Upload image via Feishu image API (`POST /open-apis/im/v1/images`) with `image_type=message` → get `image_key`
-2. Send image message via Feishu message API (`POST /open-apis/im/v1/messages?receive_id_type=chat_id`) with `msg_type=image` and `content=json.dumps({"image_key": image_key})`
-3. Use `execute_code` (Python urllib) for both steps — see avatar generation workflow for full code pattern.
-
-**Feishu text + link delivery**: Use `send_message` with `action=send` and `target=feishu` for text messages with clickable links. This works reliably.
-
-**Feishu channel notifications (publish reports)**: For automated cron publish jobs, send structured reports to a Feishu channel using the IM API directly. See `references/feishu-channel-notification.md` for the full Python pattern. Key: use `receive_id_type=chat_id` and `msg_type=text` with `json.dumps({"text": message})`.
-
-## Prerequisites
-
-Playwright and Chromium should already be installed in the Hermes venv. If not:
-
-```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
-$PYTHON -m pip install playwright
-$PYTHON -m playwright install chromium
-```
-
-> ⚠️ **Important**: Always use the venv Python path above, NOT system python3.
-
-## Workflow
-
-### 🚀 Quick Start: One-Command Auto-Publish
-
-The fastest way to publish — just provide a topic:
-
-```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_auto_publish.py \
-    --topic "蜡笔小新妈妈美伢的辛酸史" \
-    --style "emotional" \
-    --emoji "😭"
-```
-
-This single command runs the full pipeline:
-1. **Content Generation** — 5 viral titles, full body, 10 hashtags, 3 cover designs
-2. **Image Search + Cover Rendering** — Bing search → Playwright HTML covers
-3. **Auto-Publish** — CDP → fill form → `_onPublish()` → done!
-
-**Options:**
-- `--style`: auto | funny | emotional | inspirational | savage | warm
-- `--emoji`: Primary emoji (e.g., 😭 🌸 🔥 ❤️)
-- `--dry-run`: Generate content + covers, skip publishing
-- `--from-json`: Use existing `post_data.json` (skip content generation)
-- `--output`: Output directory (default: `/tmp/xhs_auto_post`)
-
----
-
-### Step 1: Login (First Time / Session Expired)
-
-```bash
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_login.py --manual
-```
-
-> 💡 Use `--manual` flag for the most reliable login flow. Complete SMS login in the Chrome window, then press Enter in the terminal.
-
-### Step 2: Generate Content
-
-See `references/xiaohongshu-content-gen.md` for the full content generation guide.
-
-**🚀 All-in-One Content + Cover Generation (Recommended):**
-
-The `xhs_content_generator.py` script generates everything from a single topic:
-- 5 viral title options (≤20 Chinese chars, ranked by viral potential)
-- Full body content (hook → story → value list → emotional close → CTA)
-- 10 optimized hashtags (broad + niche + trending + emotional)
-- 3 cover image designs with search queries
-- Auto-invokes `xhs_image_pipeline.py` to generate cover images
-
-```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
-    --topic "蜡笔小新妈妈美伢的辛酸史" \
-    --style "emotional" \
-    --emoji "😭" \
-    --output /tmp/xhs_post
-```
-
-**⚠️ IMPORTANT — LLM Architecture**: `xhs_content_generator.py` does NOT call the LLM itself. It outputs a prompt for the agent to process:
-1. Run the script → it outputs `__AGENT_PROCESS__` signal + saves prompt to `/tmp/xhs_content_prompt.txt`
-2. The **agent** (Hermes) must read the prompt, generate JSON content via its built-in LLM
-3. Agent writes JSON to `{output_dir}/content/post_data.json`
-4. Re-run with `--from-json` to continue the pipeline
-
-**Options:**
-- `--style`: auto | funny | emotional | inspirational | savage | warm
-- `--emoji`: Primary emoji for the post (e.g., 😭 🌸 🔥 ❤️)
-- `--no-images`: Skip cover image generation (content only)
-- `--from-json`: Load content from existing JSON file (to regenerate covers)
-- `--agent-prompt`: Output only the LLM prompt for inline agent processing
-
-**Output files in `--output` directory:**
-- `content.txt` — Title + body + CTA + hashtags (ready to publish)
-- `post_data.json` — Structured data (titles, body, hashtags, cover designs)
-- `post_preview.txt` — Formatted preview of the complete post
-- `cover_best.jpg` — Best cover image (if image generation enabled)
-- `cover_*/` — Individual cover variant directories
-
-Key principles:
-- **Title**: ≤20 chars, emotional hooks, numbers, or questions
-- **Body**: Hook → Story → Value → Close → Hashtags
-- **Hashtags**: 5-10 mix of broad + niche + trending
-- **Tone**: Warm, conversational, authentic
-
-**Content file workflow**: Write content to a temp file first (`/tmp/xhs_content_<topic>.txt`), then load with `CONTENT=$(cat /tmp/xhs_content_<topic>.txt)` and pass `--content "$CONTENT"` to the publish script. This avoids JS string escaping issues with special characters.
-
-**Cover image**: Use the all-in-one pipeline script (recommended):
-
-```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_image_pipeline.py \
-    --query "Crayon Shinchan Misae mom" \
-    --title "美伢的5个真相" \
-    --emoji "😭" \
-    --subtitle "看完妈妈们都哭了" \
-    --cta "你家娃也这样吗？" \
-    --key-points "葱油拌面·香到邻居" "番茄鸡蛋面·酸甜开胃" "麻酱拌面·灵魂拌一拌" \
-    --kp-emojis "🧅" "🍅" "🥜" \
-    --output /tmp/xhs_covers
-```
-
-This single command searches Bing, downloads images, and renders 3 cover variants with themed emoji circles and 88px key point text.
-
-**Alternative — step by step**:
-1. Search & download: Use `xhs_image_pipeline.py --query "..." --output /tmp/xhs_covers` (saves to `_images/` subdir)
-2. Render covers: Use `render_covers.py --bg /path/to/image.jpg --title "..." --output /tmp/cover.jpg`
-3. Pick the best cover and publish with `xhs_publish.py`
-
-See `references/image-acquisition-and-composition.md` for the full workflow.
-
-**⚠️ Pillow emoji limitation**: `ImageFont.truetype("Apple Color Emoji.ttc", size)` throws `OSError: invalid pixel size`. Pillow cannot render color emoji fonts. Use Playwright HTML rendering or emoji CDN PNGs instead.
-
-**Font choices for covers** (user-approved minimums — never go smaller):
-- **Title**: Comic Sans MS Bold **≥130px** with accent-color stroke + glow shadow (user explicitly requested larger, more eye-catching titles)
-- **Subtitle**: Arial Rounded Bold **≥68px** with glow shadow
-- **Key points**: **≥88px** (2x from 44px) with accent-color stroke + 3-layer glow shadow for maximum contrast against any background
-- **Key point circles**: **128px** diameter — supports **theme images** (circle-cropped), **Emoji** (88px font), or **numbers** (56px font) as fallback
-- **CTA text**: **≥54px** with glow shadow
-- **CTA button**: **≥42px** with gradient background + glow shadow
-- **Emoji**: Rendered natively by browser **≥110px** — perfect color
-- **Accent bars**: **22px** top and bottom edges
-- **Reliable in sandbox**: `STHeiti Medium.ttc`, `Comic Sans MS Bold.ttf`, `Arial Rounded Bold.ttf`
-- **Avoid**: `PingFang.ttc` — may fail with `OSError` in sandbox
-- **⚠️ User explicitly rejected fonts below these sizes as "too small" — always use these minimums.**
-
-**Cover key points feature**: The cover template supports displaying key points from the body text with **three circle modes** (priority order):
-1. **Theme images** (recommended): Pass `--kp-image-queries` with a Bing search query for each key point. Images are circle-cropped (128px, `object-fit: cover`, white border + shadow).
-2. **Emoji circles**: Pass `--kp-emojis` for themed emoji (88px font, no background/border/shadow).
-3. **Number fallback**: If neither image nor emoji provided, shows gradient circle with number.
-
-```bash
-# Full example with theme images + emoji fallback:
-$PYTHON xhs_image_pipeline.py \
-  --query "space galaxy universe aesthetic" \
-  --title "5个冷知识" --emoji "🧠" \
-  --subtitle "知道3个算你厉害" \
-  --cta "你知道几个？" \
-  --key-points "章鱼有三颗心脏" "蜂蜜永远不会变质" "香蕉是浆果草莓不是" "一生走路绕地球4圈" "章鱼的血是蓝色的" \
-  --kp-image-queries "octopus underwater" "honey jar golden" "banana strawberry fruits" "earth globe space" "blue octopus blood" \
-  --kp-emojis "🐯" "🍯" "🍌" "🌍" "💙" \
-  --output /tmp/xhs_covers
-```
-
-- Max 5 key points per cover
-- Theme images downloaded to `_kp_images/` subdir, converted to base64 for HTML embedding
-- See `references/session-learnings-2026-05-20.md` for full CSS details.
-
-**Current cover design**: S6 Warm Hand-Drawn Style with keyword highlighting. For full specifications, see 'Cover Design Style Guide (2026-05-21)' below.
-
-**Note**: The pipeline can embed per-key-point theme images using `--kp-image-queries`, but these are small circular thumbnails (128px), not separate full covers.
-
-### Step 3: Research Hashtags
-
-```bash
-# Get trending hashtags with competition analysis
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_hashtags.py \
-  --category 全部 --limit 20 --analyze
-```
-
-### Step 4: Publish (or Save as Draft)
-
-```bash
-# Publish immediately
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
-  --title "标题" \
-  --content "正文内容 #标签" \
-  --images /path/to/image1.jpg /path/to/image2.jpg
-
-# Save as draft only (default safe mode — no --publish flag)
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
-  --title "标题" \
-  --content "正文内容" \
-  --images /path/to/image1.jpg
-
-# Actually publish (must explicitly pass --publish)
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \
-  --title "标题" \
-  --content "正文内容 #标签" \
-  --images /path/to/image1.jpg /path/to/image2.jpg \
-  --publish
-```
-
-The publish script (v10) will:
-1. **Resolve CDP WebSocket URL** — from file or manual `/json/version` endpoint
-2. **Clear SPA state** — navigate via home page first to avoid stale Vue state
-3. **Double-navigate to publish URL** — goto `PUBLISH_URL` twice to force SPA re-render (fixes stale success page from previous publish)
-4. **Use `domcontentloaded` not `commit`** — `wait_until="commit"` times out on XHS; `domcontentloaded` is more reliable. Wrap in try/except to handle timeouts gracefully.
-5. **Detect & switch to image tab** — Bezier-curve human-like click on "上传图文" tab
-6. **Upload images** — via file input with `wait_for(state="attached")` before setting files (triggers form to render). Supports **multiple images** (cover + key point images). Upload wait time scales dynamically: `20s + 5s × image_count`. Batch upload failure auto-falls back to one-by-one.
-7. **Fill title** — JS nativeSetter (primary) → keyboard typing (fallback)
-8. **Fill content** — JS execCommand insertText (primary) → keyboard typing (fallback)
-9. **Hide overlays** — removes `.get-cover-suggest`, tippy, popup blockers
-10. **Draft by default** — script saves as draft unless `--publish` flag is explicitly passed
-11. **Publish via `_onPublish()` / Save via `_onSave()`** — both bypass `event.isTrusted`. The `xhs-publish-btn` custom element exposes these methods directly (shadow DOM is closed, so `locator()` cannot pierce it).
-12. **Verify result** — checks URL + page text for 发布成功/审核/草稿
-13. **Screenshots at every step** — saved to `/tmp/xhs_screenshots/`
-
-> ✅ **Fully Automatic Publishing** (since 2026-05-17): The `xhs-publish-btn` Custom Element's `_onPublish()` method is called directly via JS, bypassing `event.isTrusted`. No manual click required.
-
-> ⚠️ **CRITICAL**: Do NOT click the sidebar "发布笔记" button (class `publish-video`, at viewport ~x=80, y=90). That's a NAVIGATION button that goes to the publish page. The actual publish button is `xhs-publish-btn` inside the form. Use `_onPublish()` to trigger it.
-
-> 📝 **Note**: Old publish scripts (`xhs_publish_v8.py`, `xhs_publish_cdp_sync.py`) have been removed. `xhs_publish.py` v10 is the single authoritative publish script.
-
-> ⚠️ **Long content via CLI**: Content >~200 chars or with many emojis in CLI args triggers security scan timeout. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp))` for draft, or add `publish_mode=True` to actually publish.
-
-### Step 5: Track Performance
-
-### ⚠️ CRITICAL: Draft-Only Mode (User Preference)
-**User explicitly requested: no automatic publishing.** XHS can detect automated publishing behavior and may penalize the account.
-
-- `xhs_publish.py` defaults to **draft-only mode** — fills form and saves as draft, does NOT click publish
-- To actually publish: must explicitly pass `--publish` flag
-- All cron jobs for auto-publishing have been removed
-- **Workflow**: Agent fills form → saves as draft → user manually reviews in creator dashboard → user manually clicks publish
-
-### ~~Auto-Publish Scheduling (14-day cycle)~~ REMOVED
-All auto-publish cron jobs have been deleted. Publishing is now manual-only.
-
-### Cron Job Notification
-After each daily publish, send a notification to your Feishu home channel reporting the result. Use the helper script `scripts/cron_notify.py` which wraps the Feishu IM API.
-
-**Prerequisites**:
-- `FEISHU_APP_ID`, `FEISHU_APP_SECRET`, `FEISHU_HOME_CHANNEL` set in `~/.hermes/.env`
-- See `references/feishu-channel-notification.md` for full API details and troubleshooting.
-
-**Usage example** in your cron script (`daily_publish.sh`):
-```bash
-# ... after successful publish
-MESSAGE="✅ Day ${current_day} published: ${title}\nNext (Day ${next_day}): ${next_title}"
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
-$PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/cron_notify.py "$MESSAGE"
-```
-The script sends via Feishu `im/v1/messages` using `receive_id_type=chat_id`. It handles token acquisition and prints a confirmation with message ID on success.
-
-### Analytics Dashboard
-
-Fetch account overview and post performance data:
-
-```bash
-# Full dashboard (account + notes)
-$PYTHON xhs_analytics.py
-
-# Just account metrics
-$PYTHON xhs_analytics.py --section dashboard
-
-# Just note list with stats
-$PYTHON xhs_analytics.py --section notes
-
-# JSON output for processing
-$PYTHON xhs_analytics.py --output json
-```
-
-**Metrics tracked:**
-- Account: followers, following, likes/collects, account ID
-- Dashboard: exposure, views, CTR, likes, comments, saves, shares, net new followers
-- Per-note: title, date, exposure, likes, comments, saves, shares
-
-> ⚠️ **Analytics column order**: The note list page columns are: **曝光, 评论, 点赞, 收藏, 分享** (NOT 点赞 before 评论). If likes/comments data looks swapped, check `parse_note_data()` in xhs_analytics.py. See `references/session-learnings-2026-05-18-p2.md`.
-
-**⚠️ Empty analytics diagnostics**: When `xhs_analytics.py` returns `{"notes": []}` or `{"dashboard": {}}`:
-1. **Check `~/.xiaohongshu-creator/published_topics.txt`** — if entries exist there but analytics shows no data, session is likely server-side invalidated
-2. **Cross-validate with Chrome CDP** — if Chrome is running, `playwright.chromium.connect_over_cdp("http://127.0.0.1:9222")` can verify live session by navigating to creator.xiaohongshu.com and checking for login redirect
-3. **Cookie age matters** — cookies file dated >7 days ago is likely stale even if session cookies are present; `acw_tc` refresh alone cannot fix `galaxy_creator_session_id` invalidation
-4. **Empty + no cookies file** = fresh account / no posts published yet (not a session issue)
-
-### Hashtag Research
-
-Discover trending topics and analyze competition:
-
-```bash
-# All categories
-$PYTHON xhs_hashtags.py --category 全部 --limit 20 --analyze
-
-# Specific category
-$PYTHON xhs_hashtags.py --category 美食 --limit 10 --analyze
-
-# JSON output
-$PYTHON xhs_hashtags.py --output json
-```
-
-**Categories**: 全部, 美食, 美妆, 时尚, 出行, 知识, 兴趣爱好
-
-**Analysis includes:**
-- Competition level (🔴极高 / 🟠高 / 🟡中等 / 🟢低)
-- Engagement index (views per participant)
-- Strategic advice for each hashtag
-- Example top posts
-
-### Comment Management
-
-Monitor, manage, and post comments:
-
-```bash
-# List all notes with comment counts (creator platform)
-$PYTHON xhs_comments.py --action list
-
-# Filter by note title
-$PYTHON xhs_comments.py --action list --note-title "蜡笔小新"
-
-# Batch reply (lists notes with comments)
-$PYTHON xhs_comments.py --action batch-reply --message "感谢支持！💕"
-
-# Post a comment on www.xiaohongshu.com via CDP (by note URL)
-$PYTHON xhs_comments.py --action post --note-url "https://www.xiaohongshu.com/explore/xxx" --message "太棒了！"
-
-# Post a comment on www.xiaohongshu.com via CDP (by profile + note index)
-$PYTHON xhs_comments.py --action post --profile "https://www.xiaohongshu.com/user/profile/<id>" --note-index 0 --message "太棒了！"
-```
-
-**Actions:**
-- `list` — List all notes with comment counts (creator platform)
-- `reply` — Reply to a specific comment (creator platform)
-- `batch-reply` — Reply to all unread comments with the same message (creator platform)
-- `mark-read` — Mark all comments as read (creator platform)
-- `post` — Post a new comment on `www.xiaohongshu.com` via CDP (logged-in Chrome)
-
-**Key pitfalls for `post` action:**
-- **Direct `/explore/<id>` URLs return 404** (error_code=300031). Must navigate via profile page click.
-- **Comment input has `not-active` overlay** — use `force=True` or JS `el.click()` to bypass.
-- **Send button**: `button.btn.submit` or `button:has-text("发送")`.
-- **Verify**: Check page text for comment content after sending.
-
-> ✅ **Confirmed working** (2026-05-19): Successfully posted first comment on "小新的幸福生活太治愈了🌸" via CDP.
-
-### Engagement Automation
-
-Automate liking and commenting on hot posts to grow your account:
-
-```bash
-# Auto-engage: search keyword → like + comment on hot posts (via CDP)
-$PYTHON xhs_engage.py --action auto-engage --keyword "蜡笔小新" --likes 3 --comments 2
-
-# With niche-specific comment templates
-$PYTHON xhs_engage.py --action auto-engage --keyword "蜡笔小新" --likes 3 --comments 2 --niche anime
-
-# Like a specific post (via CDP)
-$PYTHON xhs_engage.py --action like --note-url "https://www.xiaohongshu.com/explore/xxx"
-
-# Comment on a specific post (via CDP)
-$PYTHON xhs_engage.py --action comment --note-url "https://www.xiaohongshu.com/explore/xxx" --message "太棒了！"
-
-# Browse trending topics (creator platform, text-based parsing)
-$PYTHON xhs_engage.py --action browse --category 知识 --limit 15
-
-# View engagement history
-$PYTHON xhs_engage.py --action history
-```
-
-**How auto-engage works:**
-1. Searches `www.xiaohongshu.com` for the keyword
-2. Extracts visible note card positions using `offsetWidth`/`offsetHeight` (NOT `getBoundingClientRect()` which returns `nan`)
-3. Clicks each note card via `page.mouse.click(cx, cy)` at card center (NOT `page.goto()` which returns 404)
-4. Waits for `.like-wrapper` and `#content-textarea` via `wait_for_selector()` before interacting
-5. Likes the post (`.like-wrapper` selector)
-6. Types and sends a comment (`#content-textarea` + `button.btn.submit`)
-7. Goes back to search results, repeats
-
-**Niche comment templates** (`--niche`):
-- `default` — Generic positive comments
-- `anime` — Anime/fandom specific
-- `food`, `beauty`, `fashion`, `travel` — Domain-specific
-
-> ⚠️ **Rate Limits**: Max 10 likes/hour, 5 comments/hour. Enforced automatically via `~/.xiaohongshu-creator/engagement_history.json`.
-
-> ⚠️ **Use responsibly**: Excessive automation may trigger bot detection. Random delays (3-8s) between actions help avoid detection.
-
-> ⚠️ **`--action browse` limitation**: Returns empty results because the creator platform inspiration page is a SPA. Use `xhs_hashtags.py` for trending topic research instead.
-
-**Key technical details:**
-- Note cards: `<section class="note-item">` — use `offsetWidth`/`offsetHeight` for dimensions (**NOT** `getBoundingClientRect()` which returns `nan`)
-- Navigation: `page.mouse.click(cx, cy)` at card center — **NOT** `page.goto()` (returns 404 for direct `/explore/` URLs)
-- Like button: `.like-wrapper` — always `wait_for_selector('.like-wrapper', timeout=10000)` before clicking
-- Comment input: `#content-textarea` — always `wait_for_selector('#content-textarea', timeout=10000)` before `force=True` click
-- Send button: `button.btn.submit`
-- Python Playwright: `page.evaluate("expr", arg)` does NOT support `arguments[0]` syntax — use the second parameter
-- `page.go_back()` to return to search results after engaging with a note
-- **Always use `wait_for_selector()`** before interacting with note page elements — SPA navigation means the page may not be fully loaded even after URL changes
-
-## GitHub Repository
-
-The skill is maintained at: https://github.com/maxray88/xiaohongshu-creator
-
-See `references/github-workflow.md` for upload/push workflow.
-
-### Hermes运行副本同步
-
-当本仓库更新后，同步到当前 Hermes 正在使用的 skill 副本：
-
-```bash
-bash ~/.hermes/skills/xiaohongshu-creator/scripts/push_skill_update.sh
-# 对比确认后执行 git push origin main 到远端
-```
-
-脚本目标路径：`~/.hermes/skills/social-media/make-money-xiaohongshu/skill/`
-
-## Content Strategy
-
-Content strategy is **orthogonal** to publishing mechanics. The same pipeline (content → images → publish → analytics) works for any content vertical.
-
-### Strategy Pivots
-When the user pivots content strategy:
-1. **Don't redo infrastructure** — image pipeline, publish scripts, and cron are strategy-agnostic
-2. **Only content changes** — titles, body text, cover queries, key points
-3. **Save strategy docs** to `references/` for future reference
-4. **Reusable assets** — bg images from old strategy may not fit new theme; always search new images
-
-### Current Strategy: 泛心理与情绪树洞 (2026-05-21)
-- **Niche**: 职场反内耗 / 恋爱清醒脑 / 社交焦虑自救 / 当代年轻人精神状态实录
-- **Format**: 金句图文 or 沉浸式树洞
-- **Tone**: 温柔但不软弱，清醒但不冷漠，像朋友深夜聊天
-- **Cover style**: Warm paper texture with keyword highlighting (S6 optimized) — user explicitly rejected heavy AI feel (glow effects, thick outlines, bright gradients, perfect geometry) in favor of hand-drawn/painterly/natural styles
-- **Full strategy + 80+ topics + 30-day calendar**: See `references/treehole-strategy.md`
-
-### Cover Design Style Guide (2026-05-21)
-- **User explicitly rejected**: "heavy AI feel" — glow effects, thick stroke outlines, bright gradient backgrounds, perfect geometric shapes
-- **User prefers**: hand-drawn / painterly / natural styles — paper textures, watercolor washes, sketch lines, warm muted palettes, slight rotations/tilts
-- **Current approved style**: Warm paper texture with keyword highlighting (S6 optimized) featuring:
-  * Subtle paper grain texture via layered radial gradients
-  * Watercolor blob backgrounds in warm/cool tones
-  * Hand-drawn title with keyword highlighting (bold, larger size, warm accent color)
-  * Accent underline with gradient fill
-  * Key points as cards with left accent border, slight rotation, and shadow
-  * Keyword highlighting within key points — accent color, larger size, subtle shadow. To highlight keywords, wrap them in `**double asterisks**` or `<angle brackets>` in the key point text.
-  * Scribble line and corner doodle decorations (✏️📝💭✨)
-  * Brand mark in bottom right
-- **Always generate 3-6 style variants** before asking user to choose; render all via Playwright, upload to Feishu for review
-- **6 style templates** (S1-S6) tested and saved to `/tmp/xhs_styles/` — see `references/cover-style-templates.md` for gallery
-- **Feishu image delivery**: Use `execute_code` with Feishu image API (upload → get image_key → send image message). Do NOT rely on `send_message` with `media` param for images — unreliable.
-  * Hand-drawn title with keyword highlighting (bold, larger size, warm accent color)
-  * Accent underline with gradient fill
-  * Key points as cards with left accent border, slight rotation, and shadow
-  * Keyword highlighting within key points (accent color, larger size, subtle shadow)
-  * Scribble line and corner doodle decorations (✏️📝💭✨)
-  * Brand mark in bottom right
-- **Always generate 3-6 style variants** before asking user to choose; render all via Playwright, upload to Feishu for review
-- **6 style templates** (S1-S6) tested and saved to `/tmp/xhs_styles/` — see `references/cover-style-templates.md` for gallery
-- **Feishu image delivery**: Use `execute_code` with Feishu image API (upload → get image_key → send image message). Do NOT rely on `send_message` with `media` param for images — unreliable.
-
-### Previous Strategy: 冷知识科普 (archived)
-- See `references/cold-facts-strategy.md` and `references/30day-calendar.md`
-
-### Batch Generation Workflow
-For generating N posts at once + setting up cron auto-publish, see `references/batch-generation-workflow.md`.
-
-### Check if session is valid
-```bash
-$PYTHON -c "
-import json, os, datetime
-cookies_file = os.path.expanduser('~/.xiaohongshu-creator/cookies.json')
-if os.path.exists(cookies_file):
-    with open(cookies_file) as f:
-        cookies = json.load(f)
-    print(f'✅ Cookies file exists ({len(cookies)} cookies)')
-    for c in cookies:
-        if c.get('expires', 0) > 0:
-            exp = datetime.datetime.fromtimestamp(c['expires'])
-            print(f'  {c[\"name\"]}: expires {exp}')
-else:
-    print('❌ No cookies found. Run login first.')
-"
-```
-
-**Cross-check with `~/.xiaohongshu-creator/published_topics.txt`** — if this file has entries but analytics returns empty, the session has been server-side invalidated even if cookies are locally valid. Run `xhs_login.py --manual` to re-authenticate.
-
-### Clear session
-```bash
-rm -f ~/.xiaohongshu-creator/cookies.json ~/.xiaohongshu-creator/*_state.json
-```
-
-## Anti-AI-Detection: Critical Failure Mode (2026-06-03)
-
-### The "Save Draft Triggers Fraud Detection" Failure
-**Symptom**: Even `draft_only=True` (save-as-draft mode) triggers account restriction/banning. User reported: "草稿保存就触发风控/限号". Past auto-publish attempts also resulted in restricted traffic.
-
-**Root Cause Analysis**: Xiaohongshu's AI/bot detection is multi-layered:
-1. **Browser fingerprint**: CDP channel detection (Chrome DevTools artifacts, `navigator.webdriver` — even with CDP mode, the `--remote-debugging-port` flag may be detectable)
-2. **Behavioral sequence**: Fixed pattern (login → upload → fill title → fill content → save/publish → close) — predictable regardless of Bezier mouse curves
-3. **Content fingerprint**: AI-generated text has detectable semantic patterns (even with humanization rules)
-4. **Temporal patterns**: Cron-triggered operations have statistical time-distribution patterns humans don't match
-5. **Session context**: Fresh session cookie + immediate script action = anomalous
-
-**Critical finding**: Anti-detection mouse movement (Bezier curves, random delays) **only addresses layer 1 partially**. It does NOT prevent detection at layers 2-5. The user's account has already been flagged from past auto-publish attempts.
-
-### Recommended Solution: Material-Only Automation
-**Convert cron jobs to "content generation only" — NO browser interaction.**
-
-```
-Modified workflow (SAFE):
-├── Cron triggers: generates cover image + content text
-├── Saves to /tmp/xhs_covers/dayXX.png + /tmp/xhs_content/dayXX.txt
-├── Sends Feishu notification with preview
-└── ❌ NO browser, NO CDP, NO xhs_publish.py call
-```
-
-**Before any automation touches the browser again**:
-1. Stop ALL cron jobs that call xhs_publish.py
-2. Let flagged account "rest" 2-4 weeks with zero automation
-3. For new accounts: first 30 days must be 100% manual posting
-4. Post-30-day: automation can resume in "material-only" mode (generate → notify → manual upload)
-
-### What Firefox Anti-Detect Would Change
-- ✅ Solves: browser fingerprint layer (navigator.webdriver, CDP artifacts)
-- ❌ Doesn't solve: behavioral sequence, content fingerprint, temporal patterns, account history
-- **Net improvement**: partial (1/3 of detection vectors). Not worth the rewrite cost given existing Chrome DOM selectors are battle-tested.
-
-### Pre-Publish Checklist Enhanced
-Add these to the existing checklist:
-- [ ] **Automation mode**: If script is calling xhs_publish.py, verify account is NOT previously restricted
-- [ ] **Fresh account rule**: New accounts must have 30+ days of manual posting before ANY automation
-- [ ] **Browser isolation**: Never use the same Chrome profile for both CDP automation and casual browsing
-
-| Problem | Solution |
-|---------|----------|
-| `playwright not installed` | `$PYTHON -m pip install playwright && $PYTHON -m playwright install chromium` |
-| `Cookies file not found` | Run `xhs_login.py` first |
-| `Session expired` | Re-run `xhs_login.py` to get fresh cookies |
-| `Cookies not expired but still redirected to login` | **Server-side session invalidation**: session cookies (`galaxy_creator_session_id`, `access-token-creator`) can be locally valid but server-invalidated. Key indicators: `redirectReason=401` in URL, page shows login form. `acw_tc` refresh alone does NOT fix this — must re-login. Debug: connect via CDP and check page URL/content. See `references/session-learnings-2026-05-23.md`. |
-| `Page.goto timeout` | The creator platform is slow; the script uses `wait_until="commit"` to handle this |
-| `Could not find title/content input` | Page may not have fully loaded; check the browser window manually |
-| `Could not find publish button` | Button may have a different label; check the DOM and update selectors |
-| `event.isTrusted` check blocks all programmatic clicks | Use `btn._onPublish()` directly — see `references/session-learnings-2026-05-17.md` |
-| `xhs-publish-btn` innerHTML is empty | Normal — it's a closed-shadow DOM Custom Element. Use `_onPublish()` method. |
-| PyAutoGUI click doesn't work | On macOS Retina: no DPR multiplication needed. But `_onPublish()` is more reliable. |
-| Upload fails | Ensure images are JPG/PNG/WebP, max 32MB each, max 18 images |
-| Bot detection / CAPTCHA | Use `--headless=false` (default) and ensure cookies are from a real login |
-| Login not detected | Use `--manual` flag and press Enter after logging in |
-| "Already logged in" but can't publish | Playwright Chrome is a separate instance — you must log in again in the new window |
-| Form inputs not found after upload | The publish form (title/content) only renders AFTER an image is uploaded |
-| Playwright click fails on tabs | Use `page.evaluate()` JS click instead — tabs may be outside viewport |
-| Analytics shows no data | Data updates hourly; wait after publishing |
-| JS syntax error in `page.evaluate` | Python triple-quoted strings: use `\\\\n` not `\\n`, `\\\\d` not `\\d` in JS code. See `references/playwright-environment.md` |
-| `OSError: invalid pixel size` with emoji font | Pillow cannot render Apple Color Emoji. Use Playwright HTML rendering or CDN PNG approach. See `references/session-learnings-2026-05-18.md` |
-| Cover emoji shows as blank/boxes | Same root cause — Pillow's FreeType driver cannot handle bitmap-based color emoji fonts. Switch to Playwright HTML rendering. |
-| Content generator outputs `__AGENT_PROCESS__` and stops | Expected behavior — the script cannot call LLM from subprocess. Agent must: (1) read prompt from `/tmp/xhs_content_prompt.txt`, (2) generate JSON via LLM, (3) save to `post_data.json`, (4) re-run with `--from-json`. See `references/session-learnings-2026-05-18-p2.md`. |
-| Analytics likes/comments data swapped | **Platform column order: 曝光, 评论, 点赞, 收藏, 分享** (NOT 点赞 before 评论). Check `parse_note_data()` in xhs_analytics.py. See `references/session-learnings-2026-05-18-p2.md`. |
-| `KeyError: '\\n  "titles"'` when running content generator | Prompt template JSON examples use single `{}` instead of escaped `{{}}`. Fix: ensure `templates/xhs_content_prompt_template.md` uses `{{}}` for all JSON example braces. See `references/session-learnings-2026-05-18-p2.md`. |
-| Comment input not clickable on www.xiaohongshu.com | The `#content-textarea` has a `not-active` overlay. Use `force=True`: `page.click('#content-textarea', force=True)` or JS `el.click()`. See `references/session-learnings-2026-05-19.md`. |
-| Direct /explore/ URL returns 404 on www.xiaohongshu.com | error_code=300031 "当前笔记暂时无法浏览". Must navigate via profile page click (SPA routing), not direct URL. See `references/session-learnings-2026-05-19.md`. |
-| xhs_engage.py browse returns empty | Inspiration page SPA doesn't render parseable text. Use `xhs_hashtags.py` instead for trending topics. Needs DOM-based parsing fix. |
-| Note card click doesn't navigate to note | `.note-item <a>` has zero-size rect (display:contents). Use `<section>` element rect for clicking. See `references/session-learnings-2026-05-19.md`. |
-| `el.click is not a function` in page.evaluate | Element matched is not an HTMLElement (may be Vue component root). Use `document.querySelector()` with more specific selector, or use `page.locator()` + `page.click()` instead. |
-| Note card getBoundingClientRect returns nan | XHS search page `.note-item` elements return `nan` for `getBoundingClientRect()`. Use `item.offsetWidth`/`item.offsetHeight` instead. See `references/session-learnings-2026-05-19.md`. |
-| page.goto() to /explore/ URL returns 404 | Direct navigation to `www.xiaohongshu.com/explore/<id>` always returns 404 (error_code=300031). Must navigate via `page.mouse.click()` on note card from search/profile page. See `references/session-learnings-2026-05-19.md`. |
-| `arguments` not defined in page.evaluate | Python Playwright `page.evaluate("expr")` does NOT support `arguments[0]` syntax. Use `page.evaluate("expr", arg)` second parameter instead. See `references/session-learnings-2026-05-19.md`. |
-| `#content-textarea` null after navigation | Note page still loading after SPA navigation. Always use `page.wait_for_selector('#content-textarea', timeout=10000)` before interacting. See `references/session-learnings-2026-05-19.md`. |
-| `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
-| `Cookies not expired but redirected to login` | Server-side session invalidation (`redirectReason=401`). Must re-run `xhs_login.py`. See `references/session-learnings-2026-05-23.md`. |
-| `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
-| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
-| **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
-| **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
-| **`_onSave()` returns ok but draft never appears** | **Session degradation from repeated CDP reconnects.** After 3+ `connect_over_cdp()` cycles on the same Chrome debug port, `_onSave()` returns `save-ok` but the draft silently fails to persist server-side. Fix: close Chrome (`--user-data-dir=/tmp/chrome-debug`), restart fresh, `xhs_login.py --manual`. See `references/session-learnings-2026-06-03.md`. |
-| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. The **correct target page is `ctx.pages[0]`** — the original first page with form state, NOT `ctx.pages[-1]` which resolves to the last-created blank upload page. Always iterate and pick the one with an active title input (verify via `page.evaluate("document.querySelector('#title')?.value")`). See `references/session-learnings-2026-06-03.md`. |
-| Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
-| **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
-| `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
-| `hermes cron create` fails — "unknown command" | The `hermes` binary is for interactive sessions only. Cron jobs must be managed via the **`cronjob` MCP tool** (in tools, not CLI). Use `cronjob(action='create')` in the conversation tool call, NOT shell commands. |
-| Cron job schedule wrong / never fires | **Schedule format** for `cronjob` tool: ISO timestamp WITHOUT "once at" prefix. Correct: `2026-06-05T14:00:00+08:00`. Wrong: `at 2026-06-05 14:00` or `once at 2026-06-05T14:00:00`. |
-| Subagent created cron jobs with short/generic prompts | **Subagent prompt truncation pitfall**: Subagents sometimes replace explicit detailed prompts with short generic versions. Put complete prompts directly in cron jobs; create in batches of ≤5 (not 10+ in parallel) to avoid truncation + rate limiting. |
-| Cron API 429 rate limiting when creating many jobs | Creating 10+ cron jobs in parallel hits 429. Create in groups of ≤5 via `cronjob` tool calls in the main conversation. |
-
-## Schedule Parameter for Cron Jobs
-
-When creating cron jobs via `cronjob(action='create')`, `schedule` accepts ISO timestamps:
-
-| Format | Example | |
-|--------|---------|---|
-| ISO timestamp | `2026-06-05T14:00:00+08:00` | **Correct** |
-| `at YYYY-MM-DD HH:MM` | `at 2026-06-05 14:00` | NOT supported |
-| `once at YYYY-MM-DD HH:MM` | `once at 2026-06-05 14:00` | causes errors |
-
-One-shot: `schedule="2026-YYYY-MM-DDTHH:MM:SS+08:00"`. Recurring: cron expr, e.g. `"0 14 * * *"`.
-
-## Cron Job Management
-
-**Do NOT use shell commands** — `hermes` has no `cron` subcommand. Use `cronjob` MCP tool:
-
-| Op | Action |
-|----|--------|
-| Create | `cronjob(action='create')` |
-| List | `cronjob(action='list')` |
-| Delete | `cronjob(action='remove')` |
-| Pause/Resume | `cronjob(action='pause/resume')` |
-
-Cron job prompts must be **fully self-contained** — jobs run in fresh sessions with no prior context.
-
-## Anti-Detection Technical Guidelines
-
-**Core principle**: When adding anti-detection, preserve proven script logic and inject human-like behaviors only at interaction points. Do NOT rewrite scripts from scratch.
-
-### What TO Do
-- Use `browser.contexts[0]` instead of `browser.new_context()` — reuses real Chrome context, less detectable
-- Replace `page.click()` with Bezier-curve human mouse movement + random press duration
-- Replace `page.type()` with per-character random delay typing
-- Add random delays (0.5–2s) between critical steps
-- Navigate using `page.evaluate("window.location.href = '...'")` when CDP-connected (uses Chrome's network, not Python's)
-- Use `wait_until="domcontentloaded"` not `"commit"` for XHS pages
-
-### What NOT To Do
-- Do NOT override User-Agent
-- Do NOT use `add_init_script()` — injects detectable JS
-- Do NOT create fresh `browser.new_context()` — creates automation-labeled context
-- Do NOT launch a new Chrome instance — connect to existing Chrome via CDP
-- Do NOT rewrite script structure from scratch — inject into proven logic
-
-### Cookie/Session Troubleshooting
-- `acw_tc` expires ~20min locally; server re-issues on visit (no re-login needed)
-- Session cookies (`galaxy_creator_session_id`, `access-token-creator`) have no local expiry; server revokes independently
-- If redirected to login with `redirectReason=401` even with valid local cookies → server-side session invalidation → must re-run `xhs_login.py`
-| `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
-| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
-| **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
-| **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
-| **`_onSave()` returns ok but draft never appears** | **Session degradation from repeated CDP reconnects.** After 3+ `connect_over_cdp()` cycles on the same Chrome debug port, `_onSave()` returns `save-ok` but the draft silently fails to persist server-side. Fix: close Chrome (`--user-data-dir=/tmp/chrome-debug`), restart fresh, `xhs_login.py --manual`. See `references/session-learnings-2026-06-03.md`. |
-| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. The **correct target page is `ctx.pages[0]`** — the original first page with form state, NOT `ctx.pages[-1]` which resolves to the last-created blank upload page. Always iterate and pick the one with an active title input (verify via `page.evaluate("document.querySelector('#title')?.value")`). See `references/session-learnings-2026-06-03.md`. |
-| Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
-| Cover title/subtitle too small | User preference: titles must be ≥130px with stroke+glow, subtitles ≥68px. Never use the old 100px/52px sizes — user explicitly rejected them. |
-| Cover key point text too small | User preference: key point text must be **88px** (2x from 44px) with accent stroke + 3-layer glow. Use `--kp-emojis` for themed emoji circles (88px font, 128px circle) or `--kp-image-queries` for per-key-point theme images (128px circle-cropped). |
-| Cover emoji circles too small | User preference: emoji circles must be **128px** (2x from 64px) with **88px** font. Number circles also 128px with 56px font. |
-| `xhs_auto_publish.py` cover queries don't match topic | Known issue: `--topic` flows to content generation but cover image search queries may still use hardcoded values. Manually verify cover relevance or use `xhs_image_pipeline.py` directly with correct `--query`. |
-| **Script fills form but doesn't publish** | Expected behavior — `xhs_publish.py` defaults to draft-only. Form is auto-saved as draft by XHS. To actually publish: add `--publish` flag to CLI, or call `publish()` with `publish_mode=True`. |
-| **Session invalid — redirected to login** | When navigating to `creator.xiaohongshu.com` and redirected to `/login` with `redirectReason=401`: session cookies are server-side invalidated. Try cookie injection recovery first: connect via CDP, `context.add_cookies(cookies)`, re-navigate. If that fails, run `xhs_login.py --manual`. See `references/session-learnings-2026-05-25.md`. |
-| Long content via CLI triggers security scan timeout | Content >~200 chars or with many emojis in CLI args gets blocked. Use Python API instead: `asyncio.run(publish(image_paths, title, content, cdp, draft_only))`. |
-| Multi-image upload times out | Uploading 6+ images can exceed Playwright's default timeout. Script auto-scales wait time (20s + 5s/image) and falls back to one-by-one upload if batch fails. |
-| `page.goto` timeout on publish page | Use `wait_until="domcontentloaded"` instead of `"commit"` for XHS creator platform. Wrap in try/except. See session learnings. |
-| `Cookies not expired but redirected to login` | Server-side session invalidation (`redirectReason=401`). Must re-run `xhs_login.py`. See `references/session-learnings-2026-05-23.md`. |
-| `Session invalidation, cookie refresh didn't fix` | `acw_tc` refresh alone is insufficient — session cookie (`galaxy_creator_session_id`) requires re-login. |
-| **Cookie injection recovery** (session invalid but cookies not expired) | If `cookies.json` has valid session cookies (check `galaxy_creator_session_id` expiry), inject them via CDP: connect to Chrome via Playwright, call `context.add_cookies(cookies)`, then navigate to creator platform. **Only works for temporary server-side invalidation where `acw_tc` cookies are still fresh.** If `acw_tc` cookies are locally expired (timestamp in the past), the session is fully revoked and cookie injection will NOT recover it — must re-run `xhs_login.py --manual`. See `references/session-learnings-2026-05-28.md` for a confirmed failure case. |
-| **Chrome debug port not running** | Start Chrome with `terminal(background=true)`: `/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug --no-first-run`. Wait for port with `execute_code` + `urllib.request.urlopen('http://127.0.0.1:9222/json/version')`. See `references/session-learnings-2026-05-26.md`. |
-| **Save draft button not found in shadow DOM** | `xhs-publish-btn` has a closed shadow root. Use `_onSave()` directly: `document.querySelector('xhs-publish-btn')._onSave()`. Both `_onPublish()` and `_onSave()` exist on the element itself. See `references/session-learnings-2026-05-29.md`. |
-| **`_onSave()` returns ok but draft never appears** | **Session degradation from repeated CDP reconnects.** After 3+ `connect_over_cdp()` cycles on the same Chrome debug port, `_onSave()` returns `save-ok` but the draft silently fails to persist server-side. Fix: close Chrome (`--user-data-dir=/tmp/chrome-debug`), restart fresh, `xhs_login.py --manual`. See `references/session-learnings-2026-06-03.md`. |
-| **Multiple pages in Chrome CDP context** | Running `xhs_publish.py` multiple times accumulates pages in `browser.contexts[0].pages`. The **correct target page is `ctx.pages[0]`** — the original first page with form state, NOT `ctx.pages[-1]` which resolves to the last-created blank upload page. Always iterate and pick the one with an active title input (verify via `page.evaluate("document.querySelector('#title')?.value")`). See `references/session-learnings-2026-06-03.md`. |
-| Title truncated to 20 chars, publish button disabled | XHS title max is 20 Chinese characters. If title-with-emoji is exactly 20 chars, the emoji may be stripped during truncation, causing validation failure. Ensure title ≤20 chars WITHOUT emoji first; move emoji to body or use as stand-alone emoji. See `references/session-learnings-2026-05-25.md`. |
-| **Chrome instance isolation** — `browser_navigate` can't use `xhs_login` cookies | `browser_navigate` uses Hermes's own Chrome (`/var/folders/...`), completely separate from `xhs_login`'s Chrome (`/tmp/chrome-debug`). Cookies are NOT shared. Use `xhs_login` Chrome window directly for manual ops. |
-| `xhs_login` timeout | Use `terminal` tool with 600s timeout (interactive QR scan takes minutes). Never `execute_code`. See `references/session-learnings-2026-05-24.md`. |
-| `hermes cron create` fails — "unknown command" | The `hermes` binary is for interactive sessions only. Cron jobs must be managed via the **`cronjob` MCP tool** (in tools, not CLI). Use `cronjob(action='create')` in the conversation tool call, NOT shell commands. |
-| Cron job schedule wrong / never fires | **Schedule format** for `cronjob` tool: ISO timestamp WITHOUT "once at" prefix. Correct: `2026-06-05T14:00:00+08:00`. Wrong: `at 2026-06-05 14:00` or `once at 2026-06-05T14:00:00`. |
-| Subagent created cron jobs with short/generic prompts | **Subagent prompt truncation pitfall**: Subagents sometimes replace explicit detailed prompts with short generic versions. Put complete prompts directly in cron jobs; create in batches of ≤5 (not 10+ in parallel) to avoid truncation + rate limiting. |
-| Cron API 429 rate limiting when creating many jobs | Creating 10+ cron jobs in parallel hits 429. Create in groups of ≤5 via `cronjob` tool calls in the main conversation. |
-
-## Schedule Parameter for Cron Jobs
-
-When creating cron jobs via `cronjob(action='create')`, `schedule` accepts ISO timestamps:
-
-| Format | Example | |
-|--------|---------|---|
-| ISO timestamp | `2026-06-05T14:00:00+08:00` | **Correct** |
-| `at YYYY-MM-DD HH:MM` | `at 2026-06-05 14:00` | NOT supported |
-| `once at YYYY-MM-DD HH:MM` | `once at 2026-06-05 14:00` | causes errors |
-
-One-shot: `schedule="2026-YYYY-MM-DDTHH:MM:SS+08:00"`. Recurring: cron expr, e.g. `"0 14 * * *"`.
-
-## Cron Job Management
-
-**Do NOT use shell commands** — `hermes` has no `cron` subcommand. Use `cronjob` MCP tool:
-
-| Op | Action |
-|----|--------|
-| Create | `cronjob(action='create')` |
-| List | `cronjob(action='list')` |
-| Delete | `cronjob(action='remove')` |
-| Pause/Resume | `cronjob(action='pause/resume')` |
-
-Cron job prompts must be **fully self-contained** — jobs run in fresh sessions with no prior context.
-
-## Anti-Detection Technical Guidelines
-
-**Core principle**: When adding anti-detection, preserve proven script logic and inject human-like behaviors only at interaction points. Do NOT rewrite scripts from scratch.
-
-### What TO Do
-- Use `browser.contexts[0]` instead of `browser.new_context()` — reuses real Chrome context, less detectable
-- Replace `page.click()` with Bezier-curve human mouse movement + random press duration
-- Replace `page.type()` with per-character random delay typing
-- Add random delays (0.5–2s) between critical steps
-- Navigate using `page.evaluate("window.location.href = '...'")` when CDP-connected (uses Chrome's network, not Python's)
-- Use `wait_until="domcontentloaded"` not `"commit"` for XHS pages
-
-### What NOT To Do
-- Do NOT override User-Agent
-- Do NOT use `add_init_script()` — injects detectable JS
-- Do NOT create fresh `browser.new_context()` — creates automation-labeled context
-- Do NOT launch a new Chrome instance — connect to existing Chrome via CDP
-- Do NOT rewrite script structure from scratch — inject into proven logic
-
-### Cookie/Session Troubleshooting
-- `acw_tc` expires ~20min locally; server re-issues on visit (no re-login needed)
-- Session cookies (`galaxy_creator_session_id`, `access-token-creator`) have no local expiry; server revokes independently
-- If redirected to login with `redirectReason=401` even with valid local cookies → server-side session invalidation → must re-run `xhs_login.py`
-- See `references/session-learnings-2026-05-23.md` for full diagnostic workflow
