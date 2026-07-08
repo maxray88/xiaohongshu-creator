@@ -590,7 +590,7 @@ Examples:
     if cover_paths:
         print(f"Best cover: {os.path.join(args.output, 'cover_best.jpg')}")
     print(f"\nPublish command:")
-    print(f"  PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3")
+    print(f"  PYTHON=python3  # Python 3.11 required")
     print(f"  $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_publish.py \\")
     print(f"    --title \"{data.get('selected_title', '')}\" \\")
     print(f"    --content \"$(cat {files['content']})\" \\")

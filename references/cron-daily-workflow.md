@@ -2,7 +2,7 @@
 
 Daily 14:00 auto-generate content + covers + save draft.
 
-**Python path**: `PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3`
+**Python path**: `PYTHON=python3  # Python 3.11 required`
 **Output dir**: `/tmp/xhs_daily`
 
 ## ⚠️ Critical: Valid `--style` values only
@@ -47,7 +47,7 @@ TOPIC="用ChatGPT写文案，一小时50元实操全过程"
 DAY_DIR="/tmp/xhs_daily/day5"
 
 # Step 1: Generate content (agent LLM call required)
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+PYTHON=python3  # Python 3.11 required
 $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_content_generator.py \
     --topic "$TOPIC" \
     --style emotional \

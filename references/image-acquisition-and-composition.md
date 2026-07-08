@@ -165,7 +165,7 @@ if not font:
 Since 2026-05-18, the recommended end-to-end workflow is a single script:
 
 ```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+PYTHON=python3  # Python 3.11 required
 $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_image_pipeline.py \
     --query "Crayon Shinchan Misae mom" \
     --title "美伢的5个真相" \
@@ -195,7 +195,7 @@ $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_image_pipeline.py \
 
 Use `scripts/render_covers.py` for covers that need emoji + Chinese text:
 ```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+PYTHON=python3  # Python 3.11 required
 $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/render_covers.py --output /tmp/xhs_covers
 ```
 

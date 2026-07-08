@@ -333,20 +333,55 @@ When injecting the verified OpenCLI workflow into a cron job, include:
 
 See `references/cron-maintenance-notes.md` for the operational checklist and common overlap patterns observed in real deployments.
 
-## Recommended 2-Job Content Factory (情绪树洞, 2026-06-21)
+## Recommended 3-Job Content Factory (情绪树洞, updated 2026-07-02)
 
-For accounts that generate and publish image-text notes daily, use this 2-job pipeline (draft-job `3b52050d1389` removed on 2026-06-21):
+### Recommended 3-Job Content Factory (情绪树洞, updated 2026-07-06)
+
+For accounts that generate and publish image-text notes daily, use this **3-job overnight pipeline** in the 01:00–03:00 window (A方案). Human publishes manually from the draft box; do not auto-publish.
 
 | Time (CST) | Job ID example | Role |
 |------------|----------------|------|
-| 20:00 | `250be2028330` | 主内容生成：选题 → 正文 → HyperFrames 渲染 6 张主图 |
-| 21:30 | `d9578136eea3` | 副配图/深化：读取 20:00 素材 → 第二版配图或视频帧 |
+| 01:00 | `250be2028330` | 主内容生成：选题 → 正文 → HyperFrames 渲染 6 张主图 |
+| 02:00 | `d9578136eea3` | 副配图/深化或 30 天任务：读取 01:00 素材 → 第二版配图或视频帧 |
+| 03:00 | `ebf775e37292` | 保存草稿：用高层 `opencli xiaohongshu publish --draft true` 推到小红书草稿箱 |
 
 **Key rules**:
-- 20:00 and 21:30 must not write to the same directory (use `_v2` suffix for the second job).
-- If draft saving is needed later, re-add a 22:00 draft job reading from the latest manifest.
-- All sharing of the same Xiaohongshu login session under the same `opencli browser <session>` alias.
+- 01:00 and 02:00 must not write to the same directory (use `_v2` suffix for the second job / third-job input).
+- 03:00 draft job reads `manifest.json` first, falls back to `_v2`, and assembles body from `post_data.json['body']`, with `post_content.md` as secondary fallback.
+- Do **not** share directory state across jobs; each job's output is the next job's input.
+- All jobs share the same Xiaohongshu login session under the same `opencli doctor`-resolved profile alias. Do not hardcode session aliases like `treehole`; resolve dynamically. The high-level publish command does not need a session argument at all.
 - Human publishes manually from draft box; do not auto-publish.
+- Do not pass `--topics` to publish; append hashtags to the body instead.
+- Never return `[SILENT]` from a draft-save cron; always emit a concrete success report or an explicit "today has no manifest" report.
+- Do not use `--window background` with `opencli xiaohongshu publish`; it breaks file-input discovery in Playwright.
+
+**Validation (2026-07-06)**: The 03:00 job (`ebf775e37292`) ran successfully end-to-end:
+- Manifest found at `/tmp/xhs_treehole/day_20260706/manifest.json`
+- Login verified: `logged_in: true`, username `静坐着呢的情绪树洞`
+- 6 images, all under 150KB, total ~0.66MB
+- Draft saved with ID `s:e2bd78f6-7cd7-4a52-9692-fe0b6c473952`
+- Verified via `opencli xiaohongshu drafts -f yaml`
+- Explicit success report emitted (not `[SILENT]`)
+
+**Validation (2026-07-08)**: Today's 03:00 job (`ebf775e37292`) ran successfully end-to-end, confirming the entire pipeline with the new v2 manifest schema (mint_cream palette):
+- Manifest found at `/tmp/xhs_treehole/day_20260708_v2/manifest.json` (new v2 schema with `version`, `palette`, `differentiation`, `series`, `day_theme` fields)
+- Login verified: `logged_in: true`, username `静坐着呢的情绪树洞`
+- 6 images: all under 150KB (max 123KB, total 633KB). **No compression needed this run** — but the compression check step remains mandatory.
+- Draft saved with ID `s:cbefa82e-295a-4d0b-94c1-4f89a193115b`
+- Verified via `opencli xiaohongshu drafts -f yaml` — draft ranked #1 with 6 images, matching title
+- **Critical confirmation**: `--window background` omitted per Mistake #5 fix. Upload succeeded without it.
+- Explicit success report emitted (not `[SILENT]`)
+
+**Validation (2026-07-07)**: Today's 03:00 job (`ebf775e37292`) ran successfully end-to-end, confirming the entire pipeline including the image compression step:
+- Manifest found at `/tmp/xhs_treehole/day_20260707/manifest.json` (old schema with `body` field)
+- Login verified: `logged_in: true`, username `静坐着呢的情绪树洞`
+- 6 images: 2 exceeded 150KB (cover_04_action 169KB, cover_06_cta 173KB) → compressed with `ffmpeg -y -i INPUT -vf "scale=640:-2" -q:v 60 OUTPUT` to ~13KB each
+- Draft saved with ID `s:1cc4fc87-4293-4df2-bb9a-579c7e592603`
+- Verified via `opencli xiaohongshu drafts -f yaml` — draft ranked #1 with 6 images, matching title
+- **Critical confirmation**: `--window background` caused "Image injection failed: No file input found on page" (Mistake #5). Removing it fixed the upload.
+- Explicit success report emitted (not `[SILENT]`)
+
+See `references/cron-maintenance-notes.md` for the operational checklist.
 
 ## Architecture
 
@@ -374,6 +409,7 @@ For accounts that generate and publish image-text notes daily, use this 2-job pi
 - `references/draft-save-from-manifest.md` — Save Xiaohongshu drafts from manifest.json using `--draft true`
 - `references/session-learnings-2026-06-20.md` — HyperFrames HTML→MP4 integration, lint error fixes
 - `references/session-learnings-2026-06-21.md` — Verified publish flow, image-size fix, DataTransfer workaround, commander UI navigation, tab-switch issue
+- `references/session-learnings-2026-07-08.md` — v2 manifest schema (mint_cream), content.md → HTML → JPG pipeline, image size compliance, --window background omission confirmed
 - `references/opencli-publish-workflow.md` — Current OpenCLI publish recipe and constraints on Xiaohongshu publishing tools
 - `references/opendesign-repo-status.md` — Open Design local repo path, build status, card-xiaohongshu template spec
 - `references/card-xiaohongshu-spec.md` — Design spec summary for 1080×1440 (3:4) cards used as an overlay guidance for HyperFrames output (copy from local OpenDesign repo)

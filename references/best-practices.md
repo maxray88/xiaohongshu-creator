@@ -41,6 +41,11 @@ Xiaohongshu implements strict security measures:
 - Image upload must be done via file input
 - Bypassing security will result in account restrictions
 
+### File Input Upload Restriction (CRITICAL — 2026-06-20)
+Chrome blocks programmatic file attachment to hidden file inputs (`visible: false`). The `opencli browser upload` command returns `{"code":-32000,"message":"Not allowed"}`.
+
+**Workaround**: Use `eval` with DataTransfer API. Full procedure in `references/opencli-xhs-workflow.md` Section 5 and `references/session-learnings-2026-06-20.md`.
+
 ### Workaround for Manual Publish
 1. Script fills all fields automatically
 2. User manually clicks "发布" button

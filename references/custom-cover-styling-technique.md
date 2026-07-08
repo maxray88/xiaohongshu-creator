@@ -64,7 +64,7 @@
 
 ## 注意事项
 
-- Playwright需使用venv Python：`/Users/maochundong/.hermes/hermes-agent/venv/bin/python3`
+- Playwright需使用venv Python：`python3  # Python 3.11 required`
 - 截图视口固定为1080x1440（小红书封面尺寸）
 - 若需要更大的关键词装饰（如下划线），可进一步修改 `.kw::after` 的高度和颜色
 

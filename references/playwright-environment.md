@@ -2,7 +2,7 @@
 
 ## Playwright Environment
 
-- **Python**: `/Users/maochundong/.hermes/hermes-agent/venv/bin/python3`
+- **Python**: `python3  # Python 3.11 required`
 - **Playwright**: v1.59.0 with Chromium
 - **Key packages**: `playwright`, `Pillow` (for test image generation)
 

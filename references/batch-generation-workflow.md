@@ -76,7 +76,7 @@ DAY_FILE="/tmp/xhs_batch/current_day.txt"
 DAY=$(cat "$DAY_FILE" 2>/dev/null || echo "1")
 [ "$DAY" -lt 1 ] || [ "$DAY" -gt 7 ] && DAY=1
 
-PYTHON="/Users/maochundong/.hermes/hermes-agent/venv/bin/python3"
+PYTHON="python3  # Python 3.11 required"
 $PYTHON /tmp/xhs_batch/publish_day.py --day $DAY 2>&1
 
 NEXT_DAY=$((DAY + 1))

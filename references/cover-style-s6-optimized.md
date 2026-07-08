@@ -109,7 +109,7 @@ Warm paper texture style with keyword highlighting. This is the current approved
 
 ### With xhs_image_pipeline.py
 ```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+PYTHON=python3  # Python 3.11 required
 $PYTHON ~/.hermes/skills/xiaohongshu-creator/scripts/xhs_image_pipeline.py \\
     --query "your background search query" \\
     --title "Your Title Here" \\

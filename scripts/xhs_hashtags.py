@@ -1,4 +1,4 @@
-#!/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+#!/usr/bin/env python3
 """
 Xiaohongshu Hashtag Research Script
 

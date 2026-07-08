@@ -47,7 +47,7 @@ lsof -i :9222
 ### 3. Install Dependencies
 
 ```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+PYTHON=python3  # Python 3.11 required
 $PYTHON -m pip install patchright websocket-client
 ```
 

@@ -47,7 +47,7 @@ metadata:
 
 **Python path (always use venv):**
 ```bash
-PYTHON=/Users/maochundong/.hermes/hermes-agent/venv/bin/python3
+PYTHON=python3  # Python 3.11 required
 ```
 
 **Data directory:** `~/.xiaohongshu-creator/` (cookies, session state, engagement history)

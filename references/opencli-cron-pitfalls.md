@@ -180,6 +180,7 @@ ${TAGS}"
 # ... (omitted; see SKILL.md validated content pipeline)
 
 # Step 6: save as draft via high-level command
+# NOTE: do NOT pass --window background (see Mistake #5)
 opencli xiaohongshu publish "$FULL_BODY" \
   --title "$TITLE" \
   --images "$IMAGES" \
@@ -190,6 +191,53 @@ opencli xiaohongshu publish "$FULL_BODY" \
 # Step 7: verify the draft is in the box
 opencli xiaohongshu drafts -f yaml 2>&1 | head -20
 ```
+
+## Validation Note (2026-07-08)
+
+**Updated validation — 2026-07-08 execution confirms the recipe works with the new v2 manifest schema (mint_cream palette):**
+
+- **Manifest schema**: Today's `manifest.json` (day_20260708_v2) uses the new v2 schema with `body` field directly in manifest (not split into post_data.json). The fallback logic handled this seamlessly. Key v2 fields: `version: "v2"`, `palette: "mint_cream"`, `differentiation` object with color_scheme/layout/typography/watermark details, `series`, `day_theme`.
+- **Content generation pipeline**: HTML cards generated from `content.md` template (6 cards: cover, scene, insight, method, healing, CTA) → Playwright rendering to JPG (1080×1440) → all 6 images under 150KB (max 123KB, total 633KB). **No compression needed this run** — but the compression check step remains mandatory.
+- **`--window background`**: Omitted per Mistake #5 fix. Command succeeded.
+- **Login verification**: `opencli xiaohongshu whoami -f yaml` confirmed `logged_in: true`, username `静坐着呢的情绪树洞` before publish.
+- **Draft verification**: `opencli xiaohongshu drafts -f yaml` confirmed draft ID `s:cbefa82e-295a-4d0b-94c1-4f89a193115b` (rank 1), 6 images, matching title.
+- **Reporting**: Explicit success report emitted (not `[SILENT]`), matching the non-silent cron contract.
+
+Successful return signature:
+```yaml
+- status: "✅ 暂存成功"
+  detail: '"不必为所有人的情绪买单" · 6张图片 · 保存成功'
+```
+
+### v2 Manifest Schema (mint_cream palette, 2026-07-08)
+The new v2 manifest includes these additional fields that the draft-save script should be aware of:
+```json
+{
+  "version": "v2",
+  "palette": "mint_cream",
+  "differentiation": {
+    "color_scheme": "mint_cream (薄荷绿→暖白)，与昨日 orange_cream 区分",
+    "layout": "圆润卡片(36px)，大量留白，手写感排版",
+    "typography": "主标题 108px，正文 42px，行高 1.85，更大留白",
+    "watermark": "字号 26px，不透明度 0.7，薄荷灰绿"
+  },
+  "series": "情绪树洞 · 夜间差异化版",
+  "day_theme": "情绪边界 · 温柔放下"
+}
+```
+
+The script should still use the same fallback logic for `body` (post_data.json first, then manifest.get('body','')) since v2 manifests include body directly.
+
+## Validation Note (2026-07-07)
+
+Today's successful execution (cron run 2026-07-06) confirms the above recipe works end-to-end:
+
+- **Manifest schema**: Today's `manifest.json` contained the `body` field directly (older schema). The fallback logic (`post_data.json` first, then `manifest.get('body','')`) handled this seamlessly.
+- **Image sizes**: All 6 images were under 150KB (max ~129KB), total ~0.66MB raw. No compression needed. OpenCLI emitted a warning about 0.9MB base64 payload but upload succeeded.
+- **`--window background`**: The command included `--window background` and succeeded, contrary to Mistake #5. This may indicate a fix in opencli v1.8.4+ or a conditional behavior. **Safer practice remains: omit `--window background`** as documented in the recipe above.
+- **Login verification**: `opencli xiaohongshu whoami -f yaml` confirmed `logged_in: true` with correct username before publish.
+- **Draft verification**: `opencli xiaohongshu drafts -f yaml` confirmed draft ID `s:e2bd78f6-7cd7-4a52-9692-fe0b6c473952` with 6 images and matching title.
+- **Reporting**: Explicit success report emitted (not `[SILENT]`), matching the non-silent cron contract.
 
 Successful return signature:
 ```yaml
