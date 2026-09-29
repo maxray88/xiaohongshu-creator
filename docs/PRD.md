@@ -145,7 +145,8 @@ LLM cron 02:00 V2 ─┘                              └─► 04:00 assemble (
 ### 7.2 目录与关键路径（不变）
 - 数据：`~/.hermes/data/xhs_treehole/` — `day_YYYYMMDD_dayN` / `day_YYYYMMDD_dayN_v2` / `published_content.json`
 - 工程：`~/02_Cronjobs_Projects/01_XHS_Daily_Post/bin|core|generators|legacy`
-- CDP 库：`~/.hermes/xhs_skills/scripts/cdp_publish.py|chrome_launcher.py` + venv `~/.hermes/xhs_skills/venv`（Playwright 渲染用 `hermes-agent/venv`）
+- CDP 库：`vendor/xhs/cdp_publish.py|chrome_launcher.py|feed_explorer.py|run_lock.py`（2026-09-27 vendored 进项目；上游仓库仍在 `~/.hermes/xhs_skills/` 未动）
+  venv 仍在 `~/.hermes/xhs_skills/venv`（32MB 二进制，不进 Git）；Playwright 渲染用 `hermes-agent/venv`
 - Chrome：`~/Google/Chrome/XiaohongshuProfiles/default`，cron headless（`XHS_CHROME_HEADLESS=1`），手动 headed
 
 ### 7.3 Cron 引用（Hermes 限制）

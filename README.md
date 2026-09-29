@@ -64,8 +64,24 @@
 | 层 | 位置 | 是什么 | 能不能改/挪 |
 |---|---|---|---|
 | **① shim 层** | `~/.hermes/scripts/` | 11 个 164–723 字节的薄 wrapper，唯一职责是转发到本项目 `bin/`+`core/`。cron 只认它们 | **必须原地留着**，不能迁、不能改成 symlink |
-| **② 公共库** | `~/.hermes/xhs_skills/scripts/` | `cdp_publish.py`（4851 行）等，独立 git 仓库（`white0dew/XiaohongshuSkills`），多项目共用 | **不迁进来**，改它等于改别人的库 |
+| **② 上游快照** | 本项目 `vendor/xhs/` | `cdp_publish.py`（4892 行）等 4 个文件，取自独立仓库 `white0dew/XiaohongshuSkills`（MIT），**2026-09-27 vendored 进来** | 尽量不改；改了就与上游分叉了，细节见 `vendor/xhs/README.md` |
 | **③ 项目实现** | 本项目 `bin/` + `core/` | 真实业务逻辑，100% 在项目里 | 改逻辑只改这里 |
+| **④ 解释器依赖** | `~/.hermes/xhs_skills/venv/` | edge-tts / playwright / websockets，**32MB 二进制，故意留在项目外** | 由 `bin/_xhs_common.sh` 的 `$XHS_PY` 指向 |
+
+### 为什么 vendor 进来（2026-09-27）
+
+原先 CDP 依赖放在 `~/.hermes/xhs_skills/scripts/`，是上游的独立 git 仓库。
+已确认 **73 处引用全部在本项目内，无任何其它项目引用** —— 它已经从「共享库」
+退化为本项目的单点外部依赖。而跨仓库改一次代码要开两个 repo，且没有共同历史
+可追溯，凌晨的 cron 出问题时更难判断是哪边改坏的。
+
+现在项目**自包含**：代码和测试都在同一个仓库、同一条历史里。
+上游仓库仍在原处、未被改动，将来要同步上游修复仍可直接对比。
+
+`feed_explorer.py`（771 行搜索/评论爬虫）项目内**一次都没用**，但
+`cdp_publish.py:78` 顶层硬 import 它的 11 个符号，缺文件会在 import 阶段炸 ——
+所以一并带上。`account_manager.py` **没有** vendor：两处引用都自带容错。
+
 
 ### 为什么 shim 不能改成 symlink
 
@@ -138,7 +154,7 @@ print(sorted(xhs))
 | `~/.hermes/scripts/render_xhs_cards.sh` | ① shim | 不用改，只是入口 |
 | 本项目 `bin/render_xhs_cards.sh` | ③ 入口，导出 `XHS_CHROME_HEADLESS=1` | 只改 headless 开关/前置环境 |
 | 本项目 `core/render_xhs_cards.py` | ③ **真身** | 渲染逻辑改这里 |
-| `~/.hermes/xhs_skills/scripts/cdp_publish.py` | ② 公共库 | 不动；缺功能去该仓库提 issue/PR |
+| `vendor/xhs/cdp_publish.py` | ② **上游快照** | 已 vendored（2026-09-27）。优先改本项目代码；真要改库，先看 `vendor/xhs/README.md` |
 | `~/.hermes/data/xhs_treehole/` 下的脚本 | **不应该存在** | 数据层，脚本清走 |
 
 引用关系（实测）：`cdp_publish` 被项目内 8 个文件 import，`chrome_launcher` 5 个，
@@ -149,14 +165,16 @@ print(sorted(xhs))
 ### 同名不同物：一个真实的坑
 
 `~/.hermes/scripts/ensure_chrome.py`（CDP **9229**，`ChromeProfiles/NewAccount`）与
-`xhs_skills/scripts/chrome_launcher.py` 的 `ensure_chrome()`（CDP **9222**，
+`vendor/xhs/chrome_launcher.py` 的 `ensure_chrome()`（CDP **9222**，
 `XiaohongshuProfiles/default`）**不是同一个东西**。本项目零引用前者。
 看到 `ensure_chrome` 别默认是同一个函数，先看端口和 profile 路径。
 
 ## 关键路径（保持不变）
 
 - **数据目录**: `~/.hermes/data/xhs_treehole/` — day_* 素材、published_content.json、post_data.json
-- **CDP 技能库**: `~/.hermes/xhs_skills/scripts/` — cdp_publish.py、chrome_launcher.py（外部依赖，未移动）
+- **CDP 代码**: `vendor/xhs/` — cdp_publish.py、chrome_launcher.py、feed_explorer.py、run_lock.py
+  （2026-09-27 从上游 `white0dew/XiaohongshuSkills` vendored 进来；上游仓库仍在
+  `~/.hermes/xhs_skills/` 原处，未被改动）
 - **虚拟环境**: CDP 脚本（`cdp_publish.py`/`chrome_launcher.py`）用 `~/.hermes/xhs_skills/venv/`；
   但 Playwright 渲染器 `generators/render_card.py` 依赖 playwright，只在 `~/.hermes/hermes-agent/venv/` 里有，
   手动跑渲染必须用后者（01:00 LLM cron 本身就在 agent 环境里，无需切换）
