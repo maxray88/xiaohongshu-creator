@@ -1,0 +1,28 @@
+# Python 缓存与字节码
+__pycache__/
+*.py[cod]
+*.so
+
+# 测试与工具产物
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# 虚拟环境
+# 注意：XHS 依赖（edge-tts / playwright / websockets）现在仍装在
+# ~/.hermes/xhs_skills/venv/ —— 32MB 二进制依赖，有意留在项目外。
+# 如果将来在本项目内建 venv，这一行正好拦住它。
+venv/
+.venv/
+env/
+
+# 密钥与凭据
+.env
+*.pem
+*.key
+*_credentials.json
+
+# macOS
+.DS_Store

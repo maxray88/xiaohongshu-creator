@@ -1,0 +1,65 @@
+{
+  "prompt": {
+    "1": {
+      "class_type": "EmptyLatentImage",
+      "inputs": {
+        "width": 1080,
+        "height": 1440,
+        "batch_size": 1
+      }
+    },
+    "2": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "warm emotional poetic card background, soft gradient from #FFF7ED to #FDBA74, gentle bokeh light, paper texture, minimal",
+        "clip": ["4", 0]
+      }
+    },
+    "3": {
+      "class_type": "CheckpointLoaderSimple",
+      "inputs": {
+        "ckpt_name": "dreamshaper_8.safetensors"
+      }
+    },
+    "4": {
+      "class_type": "CLIPTextEncode",
+      "inputs": {
+        "text": "positive prompt via API — replaced per theme tokens",
+        "clip": ["3", 1]
+      }
+    },
+    "5": {
+      "class_type": "KSampler",
+      "inputs": {
+        "seed": 42,
+        "steps": 20,
+        "cfg": 7.0,
+        "sampler_name": "euler",
+        "scheduler": "normal",
+        "denoise": 0.6,
+        "model": ["3", 0],
+        "positive": ["4", 0],
+        "negative": ["2", 0],
+        "latent_image": ["1", 0]
+      }
+    },
+    "6": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": ["5", 0],
+        "vae": ["3", 2]
+      }
+    },
+    "7": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "filename_prefix": "xhs_card",
+        "images": ["6", 0]
+      }
+    }
+  },
+  "_meta": {
+    "description": "XHS card ComfyUI workflow — inputs: theme tokens + card text → PNG 1080x1440 (or 1080x1920 for v2). Replace CLIPTextEncode texts via API. Fallback to CDP if ComfyUI unreachable.",
+    "fallback": "core/render_xhs_cards.py CDP path uses file:// + 1080x1440@2x"
+  }
+}
