@@ -126,7 +126,7 @@
 | 性能 | 渲染 <2 min，合成 <5 min，发布 <3 min |
 | 可靠性 | TTS 重试、Chrome CDP 自动拉起、渲染幂等 |
 | 可观测 | 06:00 聚合告警；每步 stdout 可审计 |
-| 安全 | Chrome Profile `~/Google/Chrome/XiaohongshuProfiles/default` 隔离；secrets 不进仓库 |
+| 安全 | Chrome Profile `~/Google/Chrome/XiaohongshuProfile` 隔离（仅小红书单平台，勿与多平台混杂的 `XiaohongshuProfiles/default` 混淆）；secrets 不进仓库 |
 | 合规 | 全文无 emoji（除非任务指定）、标题无 #/emoji/问号结尾 |
 
 ---
@@ -147,7 +147,8 @@ LLM cron 02:00 V2 ─┘                              └─► 04:00 assemble (
 - 工程：`~/02_Cronjobs_Projects/01_XHS_Daily_Post/bin|core|generators|legacy`
 - CDP 库：`vendor/xhs/cdp_publish.py|chrome_launcher.py|feed_explorer.py|run_lock.py`（2026-09-27 vendored 进项目；上游仓库仍在 `~/.hermes/xhs_skills/` 未动）
   venv 仍在 `~/.hermes/xhs_skills/venv`（32MB 二进制，不进 Git）；Playwright 渲染用 `hermes-agent/venv`
-- Chrome：`~/Google/Chrome/XiaohongshuProfiles/default`，cron headless（`XHS_CHROME_HEADLESS=1`），手动 headed
+- Chrome：`~/Google/Chrome/XiaohongshuProfile`（**单数、无 /default**，仅小红书 147M），cron headless（`XHS_CHROME_HEADLESS=1`），手动 headed
+  ⚠️ 与多平台混杂的 `~/Google/Chrome/XiaohongshuProfiles/default/`（5.5G）只差一个 `s` 但不是同一目录；实际路径由 `vendor/xhs/chrome_launcher.py` 的 `PROFILE_DIR_NAME` 决定
 
 ### 7.3 Cron 引用（Hermes 限制）
 `~/.hermes/cron/jobs.json` 的 `script` 必须物理位于 `~/.hermes/scripts/`；本项目 `bin/` 为真身，`~/.hermes/scripts/` 下为 6 个薄 wrapper（`exec bash/python` 绝对路径），symlink 已被拒绝。

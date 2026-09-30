@@ -166,7 +166,7 @@ print(sorted(xhs))
 
 `~/.hermes/scripts/ensure_chrome.py`（CDP **9229**，`ChromeProfiles/NewAccount`）与
 `vendor/xhs/chrome_launcher.py` 的 `ensure_chrome()`（CDP **9222**，
-`XiaohongshuProfiles/default`）**不是同一个东西**。本项目零引用前者。
+`XiaohongshuProfile`）**不是同一个东西**。本项目零引用前者。
 看到 `ensure_chrome` 别默认是同一个函数，先看端口和 profile 路径。
 
 ## 关键路径（保持不变）
@@ -178,7 +178,14 @@ print(sorted(xhs))
 - **虚拟环境**: CDP 脚本（`cdp_publish.py`/`chrome_launcher.py`）用 `~/.hermes/xhs_skills/venv/`；
   但 Playwright 渲染器 `generators/render_card.py` 依赖 playwright，只在 `~/.hermes/hermes-agent/venv/` 里有，
   手动跑渲染必须用后者（01:00 LLM cron 本身就在 agent 环境里，无需切换）
-- **Chrome Profile**: `~/Google/Chrome/XiaohongshuProfiles/default/`
+- **Chrome Profile**: `~/Google/Chrome/XiaohongshuProfile/`
+
+  > ⚠️ 别和 `~/Google/Chrome/XiaohongshuProfiles/default/` 搞混 —— 两者只差一个
+  > `s` 和 `/default`，但是**完全不同的目录**。流水线用的是**前者**（147M，仅小红书
+  > 一个平台）；后者是 5.5G 的多平台混杂 profile（抖音/Google/TikTok/YouTube）。
+  > 实际路径由 `vendor/xhs/chrome_launcher.py` 的 `PROFILE_DIR_NAME` 决定，
+  > `bin/_xhs_common.sh` 的 `XHS_CHROME_PROFILE` 必须与之一致，否则
+  > `kill_pipeline_chrome()` 匹配不到进程、清理静默失效。
 
 ## Cron 引用方式
 

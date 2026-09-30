@@ -25,9 +25,11 @@ sleep 1
 
 # 导航：以同样的 profile/端口再调一次 Chrome 二进制并把 URL 作为参数。实例已在
 # 运行时，Chrome 会通过单例握手把 URL 转发给已有进程并开新标签页，不会开第二个窗口。
+# profile 必须与 vendor/xhs/chrome_launcher.py 实际使用的一致（2026-09-30 修正：
+# 原先硬编码 XiaohongshuProfiles/default，但库用的是单数、无 /default 的那个）。
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
   --remote-debugging-port=9222 \
-  --user-data-dir="$HOME/Google/Chrome/XiaohongshuProfiles/default" \
+  --user-data-dir="$HOME/Google/Chrome/XiaohongshuProfile" \
   "$URL" &
 
 sleep 2

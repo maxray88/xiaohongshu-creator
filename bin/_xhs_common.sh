@@ -19,9 +19,23 @@
 # 且要求命令行同时含完整的 --user-data-dir 与 --remote-debugging-port。
 
 XHS_CHROME_PORT="${XHS_CHROME_PORT:-9222}"
-# 流水线专用 profile。必须与 account_manager.get_profile_dir() 的返回值
-# 一致；用完整路径而非 basename，避免误伤其他同名 profile。
-XHS_CHROME_PROFILE="${XHS_CHROME_PROFILE:-$HOME/Google/Chrome/XiaohongshuProfiles/default}"
+# 流水线专用 profile —— 必须与 chrome_launcher.get_user_data_dir() 实际
+# 使用的路径一致，否则 kill_pipeline_chrome() 匹配不到任何进程（静默失效）。
+#
+# 2026-09-30 修正：这个值原先写成 XiaohongshuProfiles/default（复数 + /default，
+# 5.5G），但真正启动 Chrome 的是 vendor/xhs/chrome_launcher.py，它在没有
+# account_manager 时回退到硬编码的 PROFILE_DIR_NAME = "XiaohongshuProfile"
+# （**单数、无 /default**，147M）。两者不是同一个目录，于是：
+#   · Chrome 照常用 147M 那个（专用小红书 profile，只有 4 个 xiaohongshu 域名）
+#   · 本函数的进程匹配永远落空 → 清理形同虚设 → 标签页逐次累积
+# 实测 2026-09-30 跑出 10 个 creator.xiaohongshu.com 登录页标签就是这么来的。
+#
+# 5.5G 那个 XiaohongshuProfiles/default 是多平台混杂 profile（抖音 23 /
+# Google 20 / TikTok 20 / YouTube 17 条 cookie），**不是**本流水线该用的。
+# 若将来要改用环境变量注入以覆盖公共库硬编码，5 个 cron 直调的 .py 入口
+# （check_xhs_login / check_xhs_pipeline / cleanup_xhs_treehole 等）也得
+# 同步注入，shim 只做转发不设 env。
+XHS_CHROME_PROFILE="${XHS_CHROME_PROFILE:-$HOME/Google/Chrome/XiaohongshuProfile}"
 
 # 下面列出**本流水线自己拉起的** Chrome 主进程；不碰其他 profile。
 #

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 情绪树洞 — 图文笔记 → 小红书草稿 (存草稿)
-和 xhs_video_draft.py 使用同一个 Chrome Profile (XiaohongshuProfiles/default)。
+和 xhs_video_draft.py 使用同一个 Chrome Profile (XiaohongshuProfile)。
 不依赖 LLM — 纯 CDP 操作，避开 03:00 的 weekly quota 429 风险。
 """
 import sys, os, json, time, glob, re
