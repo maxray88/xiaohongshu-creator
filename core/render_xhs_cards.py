@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from xhs_paths import add_cdp_to_path  # noqa: E402
 
 add_cdp_to_path()
-from cdp_publish import XiaohongshuPublisher
+from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
 from chrome_launcher import ensure_chrome
 
 
@@ -76,7 +76,7 @@ def main():
     if not comfy_ok:
         # Ensure Chrome is running with CDP (fallback / current primary)
         ensure_chrome()
-        p = XiaohongshuPublisher()
+        p = ManagedPublisher()
         p.connect()
 
     if p:

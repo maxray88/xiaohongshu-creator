@@ -10,7 +10,8 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 
 # CDP 模块已 vendored 到项目内 vendor/xhs/（2026-09-27，原 ~/.hermes/xhs_skills/scripts）
 add_cdp_to_path()
-from cdp_publish import XiaohongshuPublisher, CDPError, SELECTORS
+from cdp_publish import CDPError, SELECTORS
+from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
 from theme_rotation import parse_day_dir
 from publish_guard import require_publishable
 
@@ -179,7 +180,7 @@ def main():
     print(f"📹 {os.path.basename(vp)} ({os.path.getsize(vp)/1024/1024:.1f} MB)")
     print(f"📝 {title}")
 
-    pub = XiaohongshuPublisher(host=CDP_HOST, port=CDP_PORT, timing_jitter=0.25)
+    pub = ManagedPublisher(host=CDP_HOST, port=CDP_PORT, timing_jitter=0.25)
     pub.connect()
 
     # Phase 1: Navigate to publish page (login check)

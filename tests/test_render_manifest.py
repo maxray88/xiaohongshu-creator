@@ -68,9 +68,19 @@ class _FakePublisher:
 
 
 def _run_with_fake_cdp(v2, monkey_fail=True):
-    orig_pub, orig_ensure = R.XiaohongshuPublisher, R.ensure_chrome
+    # 注入点从 R.XiaohongshuPublisher 改为 R.ManagedPublisher（2026-09-30）。
+    # 起因：生产侧为修 M3 Tab 泄漏，把 publisher 换成了自己的
+    # core/tab_lifecycle.ManagedPublisher。此前本测试替换的是
+    # R.XiaohongshuPublisher，而生产代码里已无这个名字 → 5 个测试报
+    # AttributeError（假 publisher 根本没被注入，于是渲染走了真实 CDP）。
+    #
+    # 为什么不反过来在生产侧保留一个 `XiaohongshuPublisher = ManagedPublisher`
+    # 的语义别名：那会让 `p = XiaohongshuPublisher()` 读起来像在用上游类，
+    # 而实际不是 —— 与「两个 profile 只差一个 s」是同一类认知陷阱。
+    # 改测试的注入点比给生产代码留误导性别名更诚实。
+    orig_pub, orig_ensure = R.ManagedPublisher, R.ensure_chrome
     fake = _FakePublisher()
-    R.XiaohongshuPublisher = lambda: fake
+    R.ManagedPublisher = lambda: fake
     R.ensure_chrome = lambda *a, **k: None
     R._try_comfyui = lambda *a, **k: False
     old_argv = sys.argv
@@ -79,7 +89,7 @@ def _run_with_fake_cdp(v2, monkey_fail=True):
         rc = R.main()
     finally:
         sys.argv = old_argv
-        R.XiaohongshuPublisher, R.ensure_chrome = orig_pub, orig_ensure
+        R.ManagedPublisher, R.ensure_chrome = orig_pub, orig_ensure
     return rc, fake
 
 

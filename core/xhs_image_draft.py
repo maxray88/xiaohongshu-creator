@@ -14,7 +14,8 @@ add_cdp_to_path()
 from theme_rotation import parse_day_dir
 from publish_guard import require_publishable
 from xhs_video_draft import save_confirmed_in
-from cdp_publish import XiaohongshuPublisher, CDPError
+from cdp_publish import CDPError
+from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
 CDP_HOST = "127.0.0.1"
@@ -155,7 +156,7 @@ def main():
     print(f"\U0001f5bc️  {len(images)} images")
     print(f"\U0001f4c4 {len(content_body)} chars")
 
-    pub = XiaohongshuPublisher(host=CDP_HOST, port=CDP_PORT, timing_jitter=0.25)
+    pub = ManagedPublisher(host=CDP_HOST, port=CDP_PORT, timing_jitter=0.25)
     pub.connect()
 
     print("\n── [1/4] Login + Navigate ──")

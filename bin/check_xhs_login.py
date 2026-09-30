@@ -32,12 +32,14 @@ def main() -> int:
     os.environ["XHS_CHROME_HEADLESS"] = "1"
     try:
         from chrome_launcher import ensure_chrome, kill_chrome
-        from cdp_publish import XiaohongshuPublisher, CDPError
+        from cdp_publish import CDPError  # noqa: F401
     except Exception as e:
         print("❌ XHS 登录探针：无法加载 CDP 技能库")
         print("=" * 46)
         print(f"• [探针] import 失败：{e}")
         return 1
+
+    from tab_lifecycle import ManagedPublisher
 
     started_here = False
     try:
@@ -50,7 +52,7 @@ def main() -> int:
             print("• [探针] Chrome CDP 9222 不可用——请检查 Chrome 安装与 profile")
             return 1
 
-        pub = XiaohongshuPublisher(host="127.0.0.1", port=9222, timing_jitter=0.25)
+        pub = ManagedPublisher(host="127.0.0.1", port=9222, timing_jitter=0.25)
         # CDP 库自带连接日志；探针通过时必须保持无 stdout（静默约定），
         # 因此缓冲其输出，只在失败时输出我们自己的报告。
         buf = io.StringIO()
