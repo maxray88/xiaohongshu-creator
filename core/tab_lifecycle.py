@@ -29,6 +29,7 @@ connect 期间由本库新建的**那一个，其余一律不动。
 from __future__ import annotations
 
 import re
+import sys
 
 
 def _tab_id_from_ws_url(ws_url: str) -> str:
@@ -97,6 +98,17 @@ class ManagedPublisher:
         #   1) target_url_prefix 非空 → 守卫为假，整个认领块被跳过
         #   2) reuse_existing_tab=True → 同上
         #   3) 新建页不唯一（len(new_pages) != 1）→ 认领块执行了，但块内判定失败
+        #
+        # 第四种情况：connect() 自身抛异常（claude -p Reviewer 报告 R4，
+        # 2026-10-02）。vendor 的 connect() 是两步的：L572 的
+        # _find_or_create_tab() 先把标签页建出来，L580 才去
+        # ws_client.connect() 连 WebSocket。若后者抛异常，标签页**已经存在**，
+        # 但认领块在异常传播中永远跑不到 → created_tab_id 停在空串 →
+        # disconnect 认为「没建过任何页面」而什么都不关 → 那一个 tab 成孤儿泄漏。
+        # 所以认领必须放进 finally（见 _claim_created_tab）。
+        #
+        # 下面的 before 快照刻意留在 _pub.connect() **之前**：finally 里的
+        # 认领依赖这份差集基准，顺序不能颠倒。
         self.created_tab_id = ""
 
         before = self._pub._get_targets()
@@ -105,13 +117,45 @@ class ManagedPublisher:
             if t.get("type") == "page" and t.get("webSocketDebuggerUrl")
         }
 
-        result = self._pub.connect(
-            target_url_prefix=target_url_prefix,
-            reuse_existing_tab=reuse_existing_tab,
-        )
+        result = None
+        try:
+            result = self._pub.connect(
+                target_url_prefix=target_url_prefix,
+                reuse_existing_tab=reuse_existing_tab,
+            )
+        finally:
+            # 即使 ws 连接失败，vendor 也可能已经建好 tab（L572 早于 L580），
+            # 必须在异常传播前认领，否则那个 tab 会成为孤儿泄漏。
+            self._claim_created_tab(before_ids, target_url_prefix, reuse_existing_tab)
 
-        # 只有「本来没有、connect 之后有了」才算我们新建的
-        if not target_url_prefix and not reuse_existing_tab:
+        return result
+
+    def _claim_created_tab(
+        self, before_ids: set[str], target_url_prefix: str, reuse_existing_tab: bool
+    ):
+        """认领本次 connect 期间新建的标签页（R4 修复点）。
+
+        由 `connect()` 的 `finally` 调用，因此**异常路径上也会执行** ——
+        vendor 的 connect() 先建 tab（L572）再连 ws（L580），后者抛异常时
+        tab 已经存在，认领必须在异常传播之前完成，否则它会变成永久孤儿。
+
+        「新建」的判据与 connect() 之前取的那份 before 快照比对：只有
+        「本来没有、connect 之后有了」的页面才算我们建的。
+
+        ## 为什么吞掉所有异常
+
+        这里跑在 `finally` 里，且可能在调用方的真实异常传播过程中执行。
+        若 `_get_targets()` 自己抛错（Chrome 中途关闭、CDP 端口不通、
+        json 解析失败……），异常会**替换**掉那个真实错误 —— 调用方看到的
+        将是一句莫名其妙的连接错误，真正的原因被彻底埋掉。
+
+        认领是尽力而为的清理动作：失败的后果只是这个 tab 可能不被关
+        （退回 M3 之前的行为），而不该改写调用方的正常流程。故全吞。
+        """
+        try:
+            # 只有「本来没有、connect 之后有了」才算我们新建的
+            if target_url_prefix or reuse_existing_tab:
+                return
             after = self._pub._get_targets()
             new_pages = [
                 t for t in after
@@ -121,8 +165,15 @@ class ManagedPublisher:
             ]
             if len(new_pages) == 1:
                 self.created_tab_id = new_pages[0].get("id", "")
-
-        return result
+        except Exception as e:  # noqa: BLE001
+            # 认领失败不抛：不能改写调用方正在传播的异常（见 docstring）。
+            # 但必须留痕 —— 持续失败意味着 M3 泄漏在无声回归，
+            # 而这类问题的表现形式恰恰是「什么都不报」。
+            print(
+                f"[tab_lifecycle] 认领新建标签页失败，M3 可能回归: {e!r}",
+                file=sys.stderr,
+            )
+            return
 
     def disconnect(self):
         """关连接，然后关掉自己新建的标签页（如果有）。

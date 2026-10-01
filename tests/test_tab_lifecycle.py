@@ -137,8 +137,9 @@ def test_created_tab_id_is_reset_on_every_connect(patched):
 def test_created_tab_id_is_reset_even_when_reuse_existing_tab(patched):
     """同一条，但走 reuse_existing_tab=True 这条守卫分支。
 
-    分开写是因为 L105 的守卫是 `not target_url_prefix and not
-    reuse_existing_tab`，两条路各自可能被改坏。
+    分开写是因为守卫有两条独立的短路路径：`target_url_prefix` 非空、
+    以及 `reuse_existing_tab=True`（实现在 `_claim_created_tab` 开头，
+    命中任一即提前 return、不认领）。两条路各自可能被改坏。
     """
     pub = ManagedPublisher()
     pub.connect()
@@ -148,6 +149,173 @@ def test_created_tab_id_is_reset_even_when_reuse_existing_tab(patched):
     assert pub.created_tab_id == "", (
         f"reuse_existing_tab 分支未清零：{pub.created_tab_id!r}"
     )
+
+
+def test_ws_connect_failure_still_claims_orphan_tab(patched):
+    """R4 回归防护：ws 连接失败时，vendor 已建的 tab 仍要被认领。
+
+    claude -p Reviewer 报告 R4（2026-10-02）。vendor 的 `connect()` 是两步的：
+    L572 的 `_find_or_create_tab()` 先把标签页建出来，L580 才去
+    `ws_client.connect()` 连 WebSocket。若后者抛异常，标签页**已经存在**，
+    但认领块在异常传播中跑不到 → `created_tab_id` 停在空串 →
+    `disconnect()` 认为「没建过任何页面」而什么都不关 → 那个 tab 成孤儿泄漏。
+
+    修法：认领放进 `finally`。本测试用独立 fake（fixture 的 FakePub 不抛异常），
+    并检查异常仍原样向上传播、且认领照样发生。
+    """
+    state = patched
+
+    class FailingWsPub:
+        def __init__(self, *a, **kw):
+            self._ids = ["A", "B"]
+
+        def _get_targets(self):
+            return _fake_targets(*self._ids)
+
+        def connect(self, target_url_prefix="", reuse_existing_tab=False):
+            # L572：先把 tab 建出来
+            self._ids = self._ids + ["ORPHAN"]
+            # L580：再连 ws —— 这里失败
+            raise RuntimeError("ws boom")
+
+        def disconnect(self):
+            pass
+
+    pub = ManagedPublisher()
+    pub._pub = FailingWsPub()
+
+    # 1) 异常必须原样传播（finally 不能吞掉它）
+    with pytest.raises(RuntimeError, match="ws boom"):
+        pub.connect()
+
+    # 2) 但认领必须已经发生 —— 孤儿 tab 不能泄漏
+    assert pub.created_tab_id == "ORPHAN", (
+        f"ws 失败后未认领已建成的 tab：{pub.created_tab_id!r} —— "
+        f"该 tab 会成为孤儿泄漏"
+    )
+
+    # 3) disconnect 真的把它关掉了
+    pub.disconnect()
+    assert state["closed"] == ["ORPHAN"], patched
+
+
+def test_claim_failure_does_not_mask_original_error(patched):
+    """R4 的第二面：认领自己失败时，不能覆盖调用方真正的错误原因。
+
+    `_claim_created_tab()` 跑在 `finally` 里。若它抛异常，会**替换**掉
+    `connect()` 原本要抛的真实错误（Chrome 中途关闭、CDP 端口不通……），
+    调用方看到的是一句莫名其妙的认领错误，真正的原因被彻底埋掉。
+    """
+    state = patched
+
+    class BothFailPub:
+        def __init__(self, *a, **kw):
+            self._ids = ["A", "B"]
+            self.calls = 0
+
+        def _get_targets(self):
+            self.calls += 1
+            if self.calls > 1:
+                # after 快照阶段失败（模拟 Chrome 中途关闭）
+                raise ConnectionError("chrome gone")
+            return _fake_targets(*self._ids)
+
+        def connect(self, target_url_prefix="", reuse_existing_tab=False):
+            self._ids = self._ids + ["ORPHAN"]
+            raise RuntimeError("the real error")
+
+        def disconnect(self):
+            pass
+
+    pub = ManagedPublisher()
+    pub._pub = BothFailPub()
+
+    # 调用方必须看到「真实的那个」异常，而不是认领阶段的 ConnectionError
+    with pytest.raises(RuntimeError, match="the real error"):
+        pub.connect()
+
+    # 认领失败 → 不认领任何 tab（fail-safe：宁可不关，也不关错）
+    assert pub.created_tab_id == "", patched
+    pub.disconnect()
+    assert state["closed"] == [], "认领失败时不应关闭任何页面"
+
+
+def test_claim_failure_on_success_path_does_not_raise_or_close(patched):
+    """BUG-7：connect 成功、但 after 快照失败时，调用方应拿到可用的 publisher。
+
+    这是 BUG-1 描述的泄漏复发主场景：两个异常路径测试都覆盖不到它。
+    成功连接 + 认领失败时，caller 拿到一个能正常用的 publisher，但
+    `created_tab_id == ""` → 那个 tab 永不关闭。
+
+    修 BUG-1 之后这条路径会在 stderr 留痕；本测试锁住行为契约：
+    **不抛异常**（连接本身是成功的，不该因清理失败而失败）、
+    **不认领**（fail-safe：宁可不关，也不关错）、**不关任何页**。
+    """
+    class SuccessButClaimFailsPub:
+        def __init__(self, *a, **kw):
+            self._ids = ["A", "B"]
+            self.phase = "before"
+
+        def _get_targets(self):
+            if self.phase == "after":
+                raise ConnectionError("chrome gone during claim")
+            return _fake_targets(*self._ids)
+
+        def connect(self, target_url_prefix="", reuse_existing_tab=False):
+            # 模拟 vendor L572 建 tab，然后成功返回
+            self._ids = self._ids + ["ORPHAN"]
+            self.phase = "after"
+            return "connected"
+
+        def disconnect(self):
+            pass
+
+    pub = ManagedPublisher()
+    pub._pub = SuccessButClaimFailsPub()
+
+    # 1) 连接成功就是成功 —— 认领失败不该把它变成异常
+    assert pub.connect() == "connected", "连接成功时不应抛异常"
+
+    # 2) 认领失败 → 不认领任何 tab（fail-safe：宁可不关，也不关错）
+    assert pub.created_tab_id == "", patched
+
+    # 3) disconnect 不应关闭任何页面（不能凭猜测去关）
+    pub.disconnect()
+    assert patched["closed"] == [], "认领失败时不应关闭任何页面"
+
+
+def test_claim_failure_is_reported_to_stderr(patched, capsys):
+    """BUG-1 配套：认领失败必须留痕，否则 M3 泄漏会无声回归。
+
+    M3 泄漏的特征恰恰是「它自己不报错，只是慢慢堆积」。所以静默吞掉
+    认领失败等于把唯一的预警信号也丢了。本测试锁住告警行为。
+    """
+    class FailingClaimPub:
+        def __init__(self, *a, **kw):
+            self._ids = ["A", "B"]
+            self.phase = "before"
+
+        def _get_targets(self):
+            if self.phase == "after":
+                raise ConnectionError("profile locked")
+            return _fake_targets(*self._ids)
+
+        def connect(self, target_url_prefix="", reuse_existing_tab=False):
+            self.phase = "after"
+            return "connected"
+
+        def disconnect(self):
+            pass
+
+    pub = ManagedPublisher()
+    pub._pub = FailingClaimPub()
+    pub.connect()
+
+    captured = capsys.readouterr()
+    err = captured.err
+    assert err, "认领失败必须写 stderr —— 静默吞掉等于丢掉 M3 唯一的预警信号"
+    assert "认领" in err, f"告警信息应点明是认领失败，实际: {err!r}"
+    assert "M3" in err, f"告警信息应点明后果（M3 可能回归），实际: {err!r}"
 
 
 def test_created_tab_id_is_reset_when_new_page_not_unique(patched):
