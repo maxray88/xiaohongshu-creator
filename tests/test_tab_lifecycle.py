@@ -109,6 +109,89 @@ def test_closes_only_the_tab_it_created(patched):
     assert patched["closed"] == ["NEW"], patched
 
 
+def test_created_tab_id_is_reset_on_every_connect(patched):
+    """回归防护：第二次 connect 走复用路径时，不能沿用第一次的 tab id。
+
+    Reviewer 报告 R3（2026-10-01，claude -p 发现）：
+    `connect()` 原本只在「认领成功」时写 `created_tab_id`。
+    认领不发生的三条路（prefix 非空 / reuse_existing_tab / 新建页不唯一）
+    都会让它保持原值 —— 于是上一次的 tab id 残留在对象上。
+
+    后果是 disconnect 关掉一个早已失效的旧 tab，同时**本次新建的 tab
+    反而泄漏** —— 正是 M3 要消除的那个问题。
+
+    修法：进入任何逻辑前无条件清零。
+    """
+    pub = ManagedPublisher()
+    pub.connect()  # 新建路径 → 认领成功
+    assert pub.created_tab_id == "NEW", patched
+
+    # 第二次走复用路径：实现必须先清零，不能沿用 "NEW"
+    pub.connect(target_url_prefix="https://creator.xiaohongshu.com/")
+    assert pub.created_tab_id == "", (
+        f"第二次 connect 沿用了上次的 tab id：{pub.created_tab_id!r} —— "
+        f"disconnect 会关错页面并泄漏本次新建的 tab"
+    )
+
+
+def test_created_tab_id_is_reset_even_when_reuse_existing_tab(patched):
+    """同一条，但走 reuse_existing_tab=True 这条守卫分支。
+
+    分开写是因为 L105 的守卫是 `not target_url_prefix and not
+    reuse_existing_tab`，两条路各自可能被改坏。
+    """
+    pub = ManagedPublisher()
+    pub.connect()
+    assert pub.created_tab_id == "NEW", patched
+
+    pub.connect(reuse_existing_tab=True)
+    assert pub.created_tab_id == "", (
+        f"reuse_existing_tab 分支未清零：{pub.created_tab_id!r}"
+    )
+
+
+def test_created_tab_id_is_reset_when_new_page_not_unique(patched):
+    """第三条路：守卫为真、但块内 len(new_pages) != 1 判定失败。
+
+    Reviewer 报告 R5（2026-10-01）：前两个测试只覆盖了「守卫为假 →
+    整个认领块被跳过」，没覆盖这条 —— 守卫为**真**、认领块执行了，
+    但块内判定失败。后果与被修的 bug 同构（残留旧 id → disconnect 关错页面）。
+
+    生产可达路径：vendor `_find_or_create_tab`（L559-566）在 PUT /json/new
+    失败时会回退复用旧页 → 0 个新页；并发开标签页 → ≥2 个新页。
+    """
+    pub = ManagedPublisher()
+    pub.connect()  # 新建路径 → 认领成功
+    assert pub.created_tab_id == "NEW", patched
+
+    # 让第二次 connect 产生**2 个**新页（并发场景）→ 块内 len != 1 判定失败。
+    # 守卫仍为真（不传 prefix / reuse_existing_tab），所以认领块会执行，
+    # 失败点在块内而不是「块被跳过」—— 这正是前两个测试没覆盖的那条路。
+    def connect_creating_two(*a, **k):
+        pub._pub._ids = ["A", "B", "N1", "N2"]
+        return "connected"
+
+    pub._pub.connect = connect_creating_two
+    pub.connect()
+
+    assert pub.created_tab_id == "", (
+        f"新建页不唯一时未清零：{pub.created_tab_id!r} —— "
+        f"disconnect 会关错页面"
+    )
+
+
+def test_disconnect_after_never_connecting_does_not_raise(patched):
+    """从未 connect 就 disconnect —— 属性必须存在，否则 AttributeError。
+
+    守护 Builder 保留 __init__ 里 `created_tab_id = ""` 那个决定：
+    清零只发生在 connect()，对象刚构造时仍需要这个属性。
+    """
+    pub = ManagedPublisher()
+    assert pub.created_tab_id == ""
+    pub.disconnect()  # 不应抛
+    assert patched["closed"] == [], patched
+
+
 def test_does_not_close_when_reusing_existing_tab(patched):
     """复用已有标签页时不能关 —— 那是用户自己的页面。"""
     patched["next_after"] = lambda *a: _fake_targets("A", "B")

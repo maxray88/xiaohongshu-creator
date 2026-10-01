@@ -90,6 +90,15 @@ class ManagedPublisher:
         return getattr(self._pub, name)
 
     def connect(self, target_url_prefix: str = "", reuse_existing_tab: bool = False):
+        # 每次 connect 都从零开始：上一次认领的 tab id 不能带到这一次。
+        # 下面三种情况都会让 created_tab_id 保持空串（而非重新认领），
+        # 若不清零就会残留旧值，导致 disconnect 关错页面、并泄漏本次新建的 tab
+        # （claude -p Reviewer 报告 R3，2026-10-01）：
+        #   1) target_url_prefix 非空 → 守卫为假，整个认领块被跳过
+        #   2) reuse_existing_tab=True → 同上
+        #   3) 新建页不唯一（len(new_pages) != 1）→ 认领块执行了，但块内判定失败
+        self.created_tab_id = ""
+
         before = self._pub._get_targets()
         before_ids = {
             t.get("id") for t in before
