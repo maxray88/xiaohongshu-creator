@@ -18,7 +18,6 @@ import json
 import os
 import re
 import sys
-import unicodedata
 from datetime import datetime
 
 BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
@@ -26,6 +25,8 @@ BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from theme_rotation import manifest_color_scheme, recent_schemes, validate_rotation
 from manifest_title import manifest_title, plain_title, plain_series
+from content_checks import has_emoji as _has_emoji
+from content_checks import load_json_tolerant
 
 QUALITY_THRESHOLD = 7.0
 
@@ -63,15 +64,8 @@ def _pick_theme(exclude) -> str:
         return ""
 
 
-def _has_emoji(s):
-    return any(unicodedata.category(c) in ("So", "Sk") for c in s)
-
-
 def _load_json(path):
-    try:
-        return json.load(open(path, encoding="utf-8"))
-    except Exception:
-        return None
+    return load_json_tolerant(path, default=None)
 
 
 def _tts_slices_ok(v1_dir, manifest_v2):

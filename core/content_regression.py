@@ -13,21 +13,17 @@ Usage:
   python3 core/content_regression.py --all     # check all days
   python3 core/content_regression.py --day day_20260827_day50
 """
-import argparse, json, os, re, sys, unicodedata
+import argparse, json, os, re, sys
 from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__))))
 from theme_rotation import parse_day_dir
 from manifest_title import manifest_title, plain_title, plain_series
+from content_checks import has_emoji as _has_emoji
+from content_checks import load_json_tolerant
 
 BASE = Path.home() / ".hermes/data/xhs_treehole"
 
-def _has_emoji(s: str) -> bool:
-    """So = 符号，Sk = 肤色修饰符。
-
-    只查 So 会漏掉 👍🏽（So + Sk）这类带肤色的 emoji。
-    """
-    return any(unicodedata.category(c) in ("So", "Sk") for c in s)
 
 def _parse_hour(s: str) -> int | None:
     """从 best_post_time 里解析出小时，解析不出返回 None。
@@ -104,13 +100,9 @@ def check_day(day_name: str, base: Path = BASE) -> list[str]:
             problems.append(f"[{day_name}] best_post_time {bpt} not 20-23h")
     # cross-file identity
     def _load(p: Path) -> dict:
-        try:
-            return json.loads(p.read_text(encoding="utf-8"))
-        except FileNotFoundError:
-            return {}
-        except Exception as e:
-            problems.append(f"[{day_name}] {p.name} parse error: {e}")
-            return {}
+        def _on_err(path, e):
+            problems.append(f"[{day_name}] {Path(path).name} parse error: {e}")
+        return load_json_tolerant(str(p), default={}, on_error=_on_err)
     v1m = _load(v1 / "manifest.json")
     v2m = _load(v2 / "manifest.json")
     # V1 manifest 的 title 有两种落法（扁平 / 嵌套 post_data.title），

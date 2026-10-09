@@ -14,7 +14,6 @@ import json
 import os
 import re
 import sys
-import unicodedata
 import urllib.request
 import urllib.error
 from collections import Counter
@@ -24,6 +23,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from theme_rotation import manifest_color_scheme as _manifest_cs
 from theme_rotation import parse_day_dir, recent_schemes, validate_rotation
 from manifest_title import manifest_title, plain_title, plain_series
+from content_checks import has_emoji as _has_emoji
+from content_checks import load_json_tolerant
 
 BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
 JOBS_JSON = os.path.join(os.path.expanduser("~"), ".hermes", "cron", "jobs.json")
@@ -141,15 +142,6 @@ def _report(problems: list, notes: list) -> int:
     return 1
 
 
-def _has_emoji(s: str) -> bool:
-    """So = 符号，Sk = 肤色修饰符。
-
-    只查 So 时带肤色修饰的 emoji（👍🏽 = So + Sk）会漏网，
-    标题/正文里的 emoji 检查要连 Sk 一起看。
-    """
-    return any(unicodedata.category(c) in ("So", "Sk") for c in s)
-
-
 def _probe_http(url: str, timeout: int = 3) -> bool:
     try:
         with urllib.request.urlopen(url, timeout=timeout) as r:
@@ -217,22 +209,13 @@ def _content_compliance(v1_dir, v2_dir, day_name, problems):
     # (video description + card-1 voiceover), and V2 manifest (TTS fallback).
     # A split would give one day two differently-titled posts — enforcement
     # mirrors the theme gate (prompt rules are not self-enforcing).
-    def _m(path):
-        """读 manifest。损坏时必须报出来，不能静默当空。
-
-        旧实现返回 {} —— mtitle 为空 → 一致性检查全跳过，06:00 一片绿，
-        但图文与视频可能各用各的标题。
-        """
-        try:
-            with open(path, encoding="utf-8") as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {}
-        except Exception as e:
-            problems.append(f"[合规] manifest 无法解析：{os.path.basename(path)} — {e}")
-            return {}
-    v1m = _m(os.path.join(v1_dir, "manifest.json"))
-    v2m = _m(os.path.join(v2_dir, "manifest.json"))
+    # 读 manifest。损坏时必须报出来，不能静默当空。
+    # 旧实现返回 {} —— mtitle 为空 → 一致性检查全跳过，06:00 一片绿，
+    # 但图文与视频可能各用各的标题。
+    def _on_err(path, e):
+        problems.append(f"[合规] manifest 无法解析：{os.path.basename(path)} — {e}")
+    v1m = load_json_tolerant(os.path.join(v1_dir, "manifest.json"), default={}, on_error=_on_err)
+    v2m = load_json_tolerant(os.path.join(v2_dir, "manifest.json"), default={}, on_error=_on_err)
     # V1 manifest 的 title 有两种落法（扁平 / 嵌套 post_data.title），
     # 嵌套里的 title 还可能不是 str —— 统一交给 manifest_title，
     # 崩溃路径与落法兼容只有一份实现（core/manifest_title.py）。
