@@ -290,9 +290,7 @@ def main():
     # 方向是 fail-safe（拿不到证据只打 NOTE、不改 exit code），
     # 但仍尽量覆盖多种已知形态，避免每次都拿不到证据。
     # 裸「草稿」绝不能算：侧边栏标签永远含它，恒真。
-    SAVE_MARKERS = ("已保存", "保存成功", "已存草稿", "草稿已保存",
-                    "自动保存", "已自动保存", "存为草稿")
-    save_confirmed = any(k in page_snippet for k in SAVE_MARKERS)
+    save_confirmed = save_confirmed_in(page_snippet)
 
     if draft_after > draft_before:
         print(f"✅ Draft saved! 草稿箱({draft_before}) → 草稿箱({draft_after})")
@@ -364,7 +362,7 @@ def main():
         # 所以保持 exit 0 + 显式行动提示。
         # 旧实现只打印一行警告，看不出「草稿已存好」这个关键事实。
         print(f"❌ Tracker update failed: {e}")
-        print(f"   [ACTION-REQUIRED] 草稿可能已成功存入草稿箱，但本地查重账本")
+        print("   [ACTION-REQUIRED] 草稿可能已成功存入草稿箱，但本地查重账本")
         print(f"   published_content.json 未更新。**请勿重跑 05:00**"
               f"（会再传一条重复草稿）；直接人工补记 {title!r} 即可。")
 
