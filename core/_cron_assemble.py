@@ -16,11 +16,14 @@ import json, os, re, subprocess, sys, time
 from ffmpeg_build import build_segments, cleanup, concat_segments, generate_tts
 from tts_slicing import get_card_texts
 
-# ── 向后兼容 re-export（S3 前 check_content_quality 仍从此模块取）──
-from tts_slicing import clean_tts_text, _truncate_tts  # noqa: F401
-from ffmpeg_build import (  # noqa: F401
+# ── 向后兼容 re-export（tests/test_tts_slicing.py 仍从此模块取）──
+from tts_slicing import clean_tts_text, _truncate_tts
+from ffmpeg_build import (
     get_audio_duration, _valid_mp4, TTS_VOICE, TTS_RATE,
 )
+
+__all__ = ["clean_tts_text", "_truncate_tts",
+           "get_audio_duration", "_valid_mp4", "TTS_VOICE", "TTS_RATE"]
 
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")

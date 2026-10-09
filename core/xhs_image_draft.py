@@ -11,10 +11,11 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 
 # CDP 模块已 vendored 到项目内 vendor/xhs/（2026-09-27，原 ~/.hermes/xhs_skills/scripts）
 add_cdp_to_path()
-from theme_rotation import parse_day_dir
 from publish_guard import require_publishable
-from xhs_video_draft import save_confirmed_in
-from cdp_publish import CDPError
+from draft_shared import (
+    save_confirmed_in, get_draft_count,
+    find_latest_dir, navigate_publish_page,
+)
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
@@ -22,81 +23,12 @@ CDP_HOST = "127.0.0.1"
 CDP_PORT = 9222
 
 
-def get_draft_count(pub) -> int:
-    """Read draft count — handles legacy 草稿箱(N) and new icon-badge UI (XHS 2026-08 badge)."""
-    try:
-        text = pub._evaluate("""
-            (function() {
-                var els = document.querySelectorAll('span, div, a, p, li');
-                for (var i = 0; i < els.length; i++) {
-                    var t = (els[i].textContent||'').trim();
-                    var m = t.match(/草稿箱[\\s\\(（]*([0-9]+)[\\)）]?/);
-                    if (m) return parseInt(m[1],10);
-                    if (t === '草稿箱' || t.includes('草稿箱')) {
-                        var sib = els[i].nextElementSibling || (els[i].parentElement && els[i].parentElement.querySelector('span.badge, .count, [class*=\"badge\"], [class*=\"count\"]'));
-                        if (sib) {
-                            var nt = (sib.textContent||'').trim();
-                            var nm = nt.match(/^\\s*([0-9]+)\\s*$/);
-                            if (nm) return parseInt(nm[1],10);
-                        }
-                    }
-                }
-                var badges = document.querySelectorAll('[class*=\"badge\"], [class*=\"count\"], [class*=\"num\"], sup, .ant-badge-count');
-                for (var j=0;j<badges.length;j++) {
-                    var bt = (badges[j].textContent||'').trim();
-                    if (/^\\d+$/.test(bt)) {
-                        var c = badges[j].closest('li, a, div');
-                        if (c && c.textContent.includes('草稿箱')) return parseInt(bt,10);
-                    }
-                }
-                if (document.body.innerText.includes('草稿箱')) return 0;
-                return -1;
-            })()
-        """)
-        if text is not None and text != -1:
-            return int(text)
-    except Exception as e:
-        print(f"[DBG] get_draft_count failed: {e}", file=sys.stderr)
-    return -1
-
-
 def find_latest_v1_dir(wait_seconds=30, attempts=3):
-    """Latest day_* (non-_v2) dir — retries briefly when upstream 01:00 gen still running."""
-    for attempt in range(1, attempts + 1):
-        try:
-            dirs = sorted(
-                [d for d in os.listdir(BASE)
-                 if os.path.isdir(os.path.join(BASE, d))
-                 and parse_day_dir(d) and not parse_day_dir(d)[2]],  # 排除 _v2
-                reverse=True)
-        except FileNotFoundError:
-            return None
-        if dirs:
-            # 数值比较：字符串排序会把 day9 排在 day10 前
-            return max(dirs, key=lambda d: (parse_day_dir(d)[0], parse_day_dir(d)[1]))
-        if attempt < attempts:
-            print(f"  ⚠ No V1 day directory yet (attempt {attempt}/{attempts}), retrying in {wait_seconds}s...")
-            time.sleep(wait_seconds)
-    return None
-
-
-def navigate_publish_page(pub, url, attempts=3, wait=8):
-    for attempt in range(1, attempts + 1):
-        try:
-            pub._navigate(url)
-            return
-        except CDPError as e:
-            if attempt == attempts:
-                raise
-            print(f"  ⚠ Navigate attempt {attempt}/{attempts} failed: {e}")
-            print(f"    → reconnecting and retrying in {wait}s...")
-            try:
-                pub.disconnect()
-            except Exception:
-                pass
-            time.sleep(wait)
-            pub.connect()
-    raise CDPError(f"Failed to navigate to {url} after {attempts} attempts")
+    """Latest day_* (non-_v2) dir. Thin wrapper around draft_shared.find_latest_dir."""
+    import draft_shared
+    # find_latest_dir 读的是 draft_shared.BASE；把本模块 BASE（含测试 monkeypatch）同步过去。
+    draft_shared.BASE = BASE
+    return find_latest_dir(is_v2=False, wait_seconds=wait_seconds, attempts=attempts)
 
 
 def main():

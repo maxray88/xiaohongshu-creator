@@ -80,3 +80,46 @@ def test_tracker_failure_keeps_exit_zero_and_warns_not_rerun():
     assert "ACTION-REQUIRED" in tracker_block, \
         "必须显式提示「请勿重跑」"
     assert "勿重跑" in tracker_block, "必须写明重跑后果"
+
+
+def test_draft_shared_module_exists():
+    """draft_shared 模块存在且包含所有共享函数。"""
+    import draft_shared
+    assert hasattr(draft_shared, 'SAVE_MARKERS')
+    assert hasattr(draft_shared, 'save_confirmed_in')
+    assert hasattr(draft_shared, 'get_draft_count')
+    assert hasattr(draft_shared, 'find_latest_dir')
+    assert hasattr(draft_shared, 'navigate_publish_page')
+
+
+def test_video_draft_imports_from_draft_shared():
+    """video draft 从 draft_shared 导入共享函数。"""
+    import inspect
+    import xhs_video_draft as vd
+    src = inspect.getsource(vd)
+    assert 'from draft_shared import' in src
+    assert 'SAVE_MARKERS' in src  # 仍通过 draft_shared 可用
+
+
+def test_image_draft_imports_from_draft_shared():
+    """image draft 从 draft_shared 导入共享函数。"""
+    import inspect
+    import xhs_image_draft as im
+    src = inspect.getsource(im)
+    assert 'from draft_shared import' in src
+
+
+def test_find_latest_dir_v2_wrapper():
+    """find_latest_v2_dir 是 find_latest_dir(is_v2=True) 的 thin wrapper。"""
+    import inspect
+    import xhs_video_draft as vd
+    src = inspect.getsource(vd.find_latest_v2_dir)
+    assert 'find_latest_dir(is_v2=True' in src
+
+
+def test_find_latest_dir_v1_wrapper():
+    """find_latest_v1_dir 是 find_latest_dir(is_v2=False) 的 thin wrapper。"""
+    import inspect
+    import xhs_image_draft as im
+    src = inspect.getsource(im.find_latest_v1_dir)
+    assert 'find_latest_dir(is_v2=False' in src
