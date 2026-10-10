@@ -23,9 +23,10 @@
 """
 from __future__ import annotations
 
-TITLE_MAX = 18          # 小红书标题上限 20，留 2 字余量
-CONTENT_MIN = 400
-CONTENT_MAX = 900
+from xhs_config import CONTENT_MAX, CONTENT_MIN, TITLE_MAX  # noqa: F401,E402
+
+__all__ = ["TITLE_MAX", "CONTENT_MIN", "CONTENT_MAX",
+           "check_publishable", "require_publishable"]
 
 
 def check_publishable(title: str, content: str = "") -> list[str]:

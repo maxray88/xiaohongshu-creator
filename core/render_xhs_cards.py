@@ -13,20 +13,7 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 add_cdp_to_path()
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
 from chrome_launcher import ensure_chrome
-
-
-def _atomic_write_json(path: str, data: dict) -> None:
-    """tmp + rename 原子写。
-
-    manifest.json 是 02:15/04:00/06:00 的共同输入，直接覆盖写若中途
-    被杀，会留下截断的半截 JSON，三处一起炸。
-    """
-    tmp = f"{path}.tmp.{os.getpid()}"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
+from io_utils import atomic_write_json  # noqa: E402
 
 
 def _try_comfyui(html_path: str, jpg_path: str) -> bool:
@@ -204,14 +191,14 @@ def main():
 
     if missing:
         print(f"  ⚠️ {len(missing)} 张 JPG 缺失，images_rendered 保持 false：{missing}")
-        print(f"     → 02:15/06:00 会拦截；请重跑本步骤")
+        print("     → 02:15/06:00 会拦截；请重跑本步骤")
 
     if needs_update:
         manifest["renderer"] = "html-fallback"
-        _atomic_write_json(manifest_path, manifest)
+        atomic_write_json(manifest_path, manifest)
         print(f"  ✅ manifest updated (images_rendered: {all_rendered})")
     else:
-        print(f"  ✅ manifest already up-to-date")
+        print("  ✅ manifest already up-to-date")
 
     print(f"\nDone: {rendered} rendered, {skipped} skipped")
     return 0 if all_rendered else 1

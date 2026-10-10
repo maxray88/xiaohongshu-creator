@@ -25,7 +25,7 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 # CDP 模块已 vendored 到项目内 vendor/xhs/（2026-09-27，原 ~/.hermes/xhs_skills/scripts）
 add_cdp_to_path()
 
-PUBLISH_URL = "https://creator.xiaohongshu.com/publish/publish?source=official"
+from xhs_config import PUBLISH_URL  # noqa: E402
 
 
 def main() -> int:

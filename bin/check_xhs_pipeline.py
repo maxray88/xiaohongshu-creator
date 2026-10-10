@@ -25,6 +25,7 @@ from theme_rotation import parse_day_dir, recent_schemes, validate_rotation
 from manifest_title import manifest_title, plain_title, plain_series
 from content_checks import has_emoji as _has_emoji
 from content_checks import load_json_tolerant
+from xhs_config import TITLE_MAX
 
 BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
 JOBS_JSON = os.path.join(os.path.expanduser("~"), ".hermes", "cron", "jobs.json")
@@ -169,8 +170,8 @@ def _content_compliance(v1_dir, v2_dir, day_name, problems):
     title = (pd.get("title") or "").strip()
     if not title:
         problems.append("[合规] 标题缺失/为空（03:00 图文与 05:00 视频草稿都依赖它）")
-    elif len(title) > 18:
-        problems.append(f"[合规] 标题 {len(title)} 字（应 ≤18 字）：{title[:24]}")
+    elif len(title) > TITLE_MAX:
+        problems.append(f"[合规] 标题 {len(title)} 字（应 ≤{TITLE_MAX} 字）：{title[:24]}")
     if title and (_has_emoji(title) or "#" in title or title.endswith(("?", "？"))):
         problems.append("[合规] 标题含 emoji/# 或以问号结尾（prompt 明确禁止）")
     tags = pd.get("hashtags") or []
@@ -276,7 +277,7 @@ def main() -> int:
     else:
         v2_manifest = os.path.join(v2, "manifest.json")
         if not os.path.isfile(v2_manifest):
-            problems.append(f"[V2] manifest.json 缺失")
+            problems.append("[V2] manifest.json 缺失")
         else:
             try:
                 with open(v2_manifest, encoding="utf-8") as f:

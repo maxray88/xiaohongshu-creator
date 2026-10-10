@@ -17,10 +17,9 @@ from draft_shared import (
     find_latest_dir, navigate_publish_page,
 )
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
+from xhs_config import CDP_HOST, CDP_PORT, CREATOR_HOST_FRAGMENT, PUBLISH_URL  # noqa: E402
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
-CDP_HOST = "127.0.0.1"
-CDP_PORT = 9222
 
 
 def find_latest_v1_dir(wait_seconds=30, attempts=3):
@@ -92,7 +91,7 @@ def main():
     pub.connect()
 
     print("\n── [1/4] Login + Navigate ──")
-    navigate_publish_page(pub, "https://creator.xiaohongshu.com/publish/publish?source=official")
+    navigate_publish_page(pub, PUBLISH_URL)
     pub._sleep(3, minimum_seconds=1.0)
     # 按路径段判登录态（与 xhs_video_draft 一致）：/auth、/passport、
     # 验证码页 URL 里没有 'login'，只查 'login' 会误判成已登录。
@@ -106,7 +105,7 @@ def main():
         print("   → 打开 Chrome 窗口手动扫码登录后重试")
         pub.disconnect()
         sys.exit(1)
-    if "creator.xiaohongshu.com" not in href:
+    if CREATOR_HOST_FRAGMENT not in href:
         print(f"❌ Unexpected redirect: {href[:120]}")
         print("   → 可能被风控或跳转异常，暂不发布以免误操作")
         pub.disconnect()

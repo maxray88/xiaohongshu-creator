@@ -161,7 +161,7 @@ empty_video_dir = Path(TARGET) / "video"
 if empty_video_dir.is_dir() and not any(empty_video_dir.iterdir()):
     try:
         empty_video_dir.rmdir()
-        print(f"  DELETED (empty dir):  video")
+        print("  DELETED (empty dir):  video")
         DELETED += 1
     except Exception as e:
         print(f"  ERROR: video: {e}")

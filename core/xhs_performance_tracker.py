@@ -16,12 +16,11 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 # CDP 模块已 vendored 到项目内 vendor/xhs/（2026-09-27，原 ~/.hermes/xhs_skills/scripts）
 add_cdp_to_path()
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
+from xhs_config import CDP_HOST, CDP_PORT, PUBLISH_URL, STATISTICS_URL  # noqa: E402
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
 DB_PATH = os.path.join(BASE, "performance_history.json")
 PUBLISHED_PATH = os.path.join(BASE, "published_content.json")
-CDP_HOST = "127.0.0.1"
-CDP_PORT = 9222
 
 # North star metric thresholds
 SAVE_TO_LIKE_EXCELLENT = 0.30
@@ -153,7 +152,7 @@ def fetch_all_note_data(pub):
     - 结果按 (title, publish_time) 去重
     - 结束时用「共 N 条」与实际抓到的行数对账，对不上就报错
     """
-    pub._navigate("https://creator.xiaohongshu.com/statistics/data-analysis")
+    pub._navigate(STATISTICS_URL)
     time.sleep(6)
 
     total_notes, total_pages = _read_pagination(pub)
@@ -399,7 +398,7 @@ def main():
         print("[CDP] Connected")
 
         # Ensure we're logged in
-        pub._navigate("https://creator.xiaohongshu.com/publish/publish?source=official")
+        pub._navigate(PUBLISH_URL)
         time.sleep(2)
         href = pub._evaluate("window.location.href") or ""
         if "login" in href.lower():

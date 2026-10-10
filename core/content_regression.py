@@ -21,6 +21,7 @@ from theme_rotation import parse_day_dir
 from manifest_title import manifest_title, plain_title, plain_series
 from content_checks import has_emoji as _has_emoji
 from content_checks import load_json_tolerant
+from xhs_config import TITLE_MAX
 
 BASE = Path.home() / ".hermes/data/xhs_treehole"
 
@@ -62,8 +63,8 @@ def check_day(day_name: str, base: Path = BASE) -> list[str]:
     title = (pd.get("title") or "").strip()
     if not title:
         problems.append(f"[{day_name}] title missing")
-    elif len(title) > 18:
-        problems.append(f"[{day_name}] title {len(title)} chars (>18): {title[:24]}")
+    elif len(title) > TITLE_MAX:
+        problems.append(f"[{day_name}] title {len(title)} chars (>{TITLE_MAX}): {title[:24]}")
     if title and (_has_emoji(title) or "#" in title or title.endswith(("?", "？"))):
         problems.append(f"[{day_name}] title has emoji/# or ends with ?")
     tags = pd.get("hashtags") or []

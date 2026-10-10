@@ -150,7 +150,7 @@ def main():
             sys.exit(1)
 
     # Step 2: Derive TTS texts from content_text (post_data.json) — one slice per card role
-    print(f"\n[STEP 2] Deriving TTS texts from content_text (post_data.json)...")
+    print("\n[STEP 2] Deriving TTS texts from content_text (post_data.json)...")
     texts, title, series, emotion_tag = get_card_texts(v1_dir, manifest)
     for i, t in sorted(texts.items()):
         preview = t[:60] + ("…" if len(t) > 60 else "")
@@ -176,10 +176,10 @@ def main():
     print(f"  系列:         {series}")
     print(f"  标题:         {title}")
     print(f"  情绪标签:     {emotion_tag}")
-    print(f"  版本:         v2")
+    print("  版本:         v2")
     print(f"  画布:         {vw}×{vh} (9:16 竖版)")
     print(f"  TTS 引擎:     {engine_used}")
-    print(f"  配音一致性:   ✅ 同一声音（同一引擎同一参数）")
+    print("  配音一致性:   ✅ 同一声音（同一引擎同一参数）")
     print("-" * 64)
     print(f"  视频时长:     {fdur:.2f}s ({fdur/60:.1f} 分钟)")
     print(f"  文件大小:     {fsize/1024/1024:.1f} MB")

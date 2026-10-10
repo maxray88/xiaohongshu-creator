@@ -12,6 +12,7 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 add_cdp_to_path()
 from cdp_publish import CDPError, SELECTORS
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
+from xhs_config import CDP_HOST, CDP_PORT, CREATOR_HOST_FRAGMENT, PUBLISH_URL  # noqa: E402
 from publish_guard import require_publishable
 from draft_shared import (
     # SAVE_MARKERS 系 re-export：保持 vd.SAVE_MARKERS 对外可用（pyflakes F401 属预期内）
@@ -24,10 +25,6 @@ __all__ = ["SAVE_MARKERS", "save_confirmed_in", "get_draft_count",
            "find_latest_v2_dir"]
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
-
-# ─── Config ─────────────────────────────────────
-CDP_HOST = "127.0.0.1"
-CDP_PORT = 9222
 
 
 def find_latest_v2_dir(wait_seconds=30, attempts=3):
@@ -99,7 +96,7 @@ def main():
 
     # Phase 1: Navigate to publish page (login check)
     print("\n── [1/5] Login + Navigate ──")
-    navigate_publish_page(pub, "https://creator.xiaohongshu.com/publish/publish?source=official")
+    navigate_publish_page(pub, PUBLISH_URL)
     pub._sleep(3, minimum_seconds=1.0)
     # 登录态判定不能只看 'login'：平台跳 /auth、/passport、验证码或风控页时
     # URL 里没有 'login'，会被误判成「已登录」然后在上传步骤莫名其妙失败。
@@ -114,7 +111,7 @@ def main():
         print("   → 打开 Chrome 窗口手动扫码登录后重试")
         pub.disconnect()
         sys.exit(1)
-    if "creator.xiaohongshu.com" not in href:
+    if CREATOR_HOST_FRAGMENT not in href:
         print(f"❌ Unexpected redirect: {href[:120]}")
         print("   → 可能被风控或跳转异常，暂不发布以免误操作")
         pub.disconnect()

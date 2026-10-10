@@ -15,6 +15,8 @@ import os
 import re
 import sys
 
+from io_utils import atomic_write_json
+
 # 书面 → 口语替换表
 REPLACEMENTS = {
     "此外": "还有",
@@ -223,20 +225,6 @@ def humanize_html(html: str) -> str:
     return html
 
 
-def _atomic_write_json(path: str, data: dict) -> None:
-    """tmp + rename 原子写。
-
-    直接覆盖写若在中途被 cron 杀掉，post_data.json 会变成截断的
-    半截 JSON —— 而 02:00/02:15/04:00 全都读它，损坏即连锁失败。
-    """
-    tmp = f"{path}.tmp.{os.getpid()}"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
-
-
 def humanize_day_dir(day_dir: str) -> dict:
     """处理整个 day 目录的 V1 内容。"""
     results = {"post_data": False, "html_cards": 0, "errors": []}
@@ -263,7 +251,7 @@ def humanize_day_dir(day_dir: str) -> dict:
                 pd["content_text"] = humanize_text(original_text)
                 pd["content_text_humanized"] = True
 
-                _atomic_write_json(pd_path, pd)
+                atomic_write_json(pd_path, pd)
                 results["post_data"] = True
             else:
                 with open(pd_path, "w", encoding="utf-8") as f:

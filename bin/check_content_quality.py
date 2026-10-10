@@ -27,20 +27,12 @@ from theme_rotation import manifest_color_scheme, recent_schemes, validate_rotat
 from manifest_title import manifest_title, plain_title, plain_series
 from content_checks import has_emoji as _has_emoji
 from content_checks import load_json_tolerant
+from xhs_config import TITLE_MAX
+from io_utils import atomic_write_json
 
 QUALITY_THRESHOLD = 7.0
 
 PROJ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-
-
-def _atomic_write_json(path: str, data: dict) -> None:
-    """tmp + rename 原子写。写坏 manifest 会让 02:30/04:00 一起炸。"""
-    tmp = f"{path}.tmp.{os.getpid()}"
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
-        f.flush()
-        os.fsync(f.fileno())
-    os.replace(tmp, path)
 
 
 def _pick_theme(exclude) -> str:
@@ -168,7 +160,7 @@ def main() -> int:
                         "images_rendered": False,
                         "renderer": "html-only (self-healed)",
                     }
-                    _atomic_write_json(os.path.join(v2_dir, "manifest.json"), rebuilt)
+                    atomic_write_json(os.path.join(v2_dir, "manifest.json"), rebuilt)
                     v2m = rebuilt
                     heal_detail = f"已按磁盘实测文件名重建 manifest（{pick}，{len(cards)} 卡）"
         except Exception as e:
@@ -193,7 +185,7 @@ def main() -> int:
     first = body.splitlines()[0].strip() if body else ""
     check("首句含 emotion_tag", bool(etag and first and etag in first),
           f"tag=「{etag}」" if not (etag and first and etag in first) else "")
-    check("标题 ≤18 字且无 emoji", bool(title) and len(title) <= 18 and not _has_emoji(title),
+    check(f"标题 ≤{TITLE_MAX} 字且无 emoji", bool(title) and len(title) <= TITLE_MAX and not _has_emoji(title),
           f"标题=「{title[:24]}」")
     check("标签 6–10 且含品牌词+tag",
           6 <= len(tags) <= 10 and any("情绪树洞" in t for t in tags)
