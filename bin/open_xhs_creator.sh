@@ -6,14 +6,17 @@
 # 可用第一个参数覆盖 URL。
 # 行为：若 9222 已有 Chrome（通常是 cron 留下的 headless），先收掉再以有头模式
 #       重启——保证用户始终得到可见窗口；随后把 URL 交给该实例开新标签页。
-PROJ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$(dirname "${BASH_SOURCE[0]}")/_xhs_common.sh"
+require_python || exit 1
 URL="${1:-https://creator.xiaohongshu.com/publish/publish?source=official}"
-VENV_PY="$HOME/.hermes/xhs_skills/venv/bin/python3"   # 依赖仍在项目外
 
-# CDP 模块走项目内 vendor/xhs/（2026-09-27 vendored）
-"$VENV_PY" - "$PROJ_ROOT" <<'PY'
+# CDP 模块走项目内 vendor/xhs/（2026-09-27 vendored），路径入口统一用
+# core/xhs_paths.add_cdp_to_path()（全项目唯一入口，同时注入 vendor/xhs 与 core/）
+"$XHS_PY" - "$XHS_PROJECT_ROOT" <<'PY'
 import sys
-sys.path.insert(0, sys.argv[1] + "/vendor/xhs")
+sys.path.insert(0, sys.argv[1] + "/core")
+from xhs_paths import add_cdp_to_path
+add_cdp_to_path()
 from chrome_launcher import is_port_open, kill_chrome, launch_chrome, CDP_PORT
 
 if is_port_open(CDP_PORT):

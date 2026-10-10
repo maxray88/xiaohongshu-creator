@@ -1,4 +1,11 @@
 #!/bin/bash
+
+# 项目根 —— 从本文件位置推导，不硬编码 $HOME 下的项目绝对路径
+# （2026-09-29 修过 2 处，其余 4 处漏了，本步收干净）
+XHS_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+XHS_PROJECT_ROOT="$(cd "$XHS_BIN_DIR/.." && pwd)"
+export XHS_PROJECT_ROOT
+
 # 情绪树洞 — 共用 wrapper 前置/后置逻辑
 #
 # ── 为什么不再用 pkill -f "remote-debugging-port=9222" ──────────────
@@ -84,6 +91,13 @@ list_pipeline_chrome() {
 # 校验 venv 解释器存在。原先硬编码路径，venv 缺失时 shell 找不到
 # 解释器，错误信息与真实原因无关，排查困难。
 XHS_PY="${XHS_PY:-$HOME/.hermes/xhs_skills/venv/bin/python3}"
+
+# 跑项目内的 python 脚本：统一解释器来源，不再各写硬编码路径
+run_project_python() {
+  require_python || return 1
+  "$XHS_PY" "$XHS_PROJECT_ROOT/$1" "${@:2}"
+}
+
 require_python() {
   if [ ! -x "$XHS_PY" ]; then
     echo "❌ venv 解释器不存在或不可执行: $XHS_PY"

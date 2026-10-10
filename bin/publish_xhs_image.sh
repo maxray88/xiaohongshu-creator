@@ -21,7 +21,7 @@ fi
 
 export XHS_CHROME_HEADLESS=1
 
-"$XHS_PY" "$HOME/02_Cronjobs_Projects/01_XHS_Daily_Post/core/xhs_image_draft.py" 2>&1
+run_project_python core/xhs_image_draft.py 2>&1
 EXIT_CODE=$?
 
 kill_pipeline_chrome

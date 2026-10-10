@@ -106,7 +106,7 @@ export XHS_CHROME_HEADLESS=1
 
 # Source venv and run render script
 source "$VENV"
-PYTHONPATH="$PROJ_ROOT/vendor/xhs:$PYTHONPATH" python3 "$SCRIPT" "$V2_DIR"
+"$XHS_PY" "$SCRIPT" "$V2_DIR"
 EXIT_CODE=$?
 
 # Cleanup Chrome

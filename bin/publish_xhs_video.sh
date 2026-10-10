@@ -37,7 +37,7 @@ if ! require_python; then
 fi
 
 # Run the video draft script — no need to cd, xhs_video_draft.py uses absolute imports
-"$XHS_PY" "$HOME/02_Cronjobs_Projects/01_XHS_Daily_Post/core/xhs_video_draft.py" 2>&1
+run_project_python core/xhs_video_draft.py 2>&1
 EXIT_CODE=$?
 
 # Cleanup（仅本流水线的 Chrome）
