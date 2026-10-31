@@ -21,6 +21,7 @@ websockets 仍在项目外。这里显式断言它还在项目外，防止将来
 """
 import ast
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -29,7 +30,7 @@ import pytest
 
 PROJ = Path(__file__).resolve().parents[1]
 VENDOR = PROJ / "vendor" / "xhs"
-VENV_PY = Path(os.path.expanduser("~/.hermes/xhs_skills/venv/bin/python3"))
+XHS_PY = Path(os.path.expanduser("~/.pyenv/versions/3.11.15/bin/python3"))
 
 # 传递闭包 —— cdp_publish 顶层 import feed_explorer(11 符号多行) 和 run_lock
 EXPECTED = {"cdp_publish.py", "chrome_launcher.py", "feed_explorer.py", "run_lock.py"}
@@ -131,11 +132,10 @@ def test_add_cdp_to_path_is_idempotent():
 def test_venv_is_not_vendored():
     """32MB 二进制依赖绝不能进项目目录 / Git。"""
     assert not (PROJ / "vendor" / "xhs" / "venv").exists()
-    # 路径层级：.../xhs_skills/venv/bin/python3 —— parent 是 bin，再 parent 是 venv
-    assert VENV_PY.parent.name == "bin"
-    assert VENV_PY.parent.parent.name == "venv"
+    assert XHS_PY.parent.name == "bin"
+    # 解释器在项目外即可，不绑定具体目录层级（venv / pyenv 结构不同）
     # 且必须真的还在项目外
-    assert str(PROJ) not in str(VENV_PY)
+    assert str(PROJ) not in str(XHS_PY)
 
 
 def test_gitignore_excludes_venv_and_pycache():
@@ -184,7 +184,18 @@ def test_no_live_references_to_external_scripts_dir():
     assert not offenders, f"仍引用外部目录: {offenders}"
 
 
-def test_venv_path_still_referenced_in_shell():
-    """反向确认：venv 路径必须还在 shell 里（被上面那轮误改过）。"""
+def test_xhs_py_is_explicit_and_overridable():
+    """守卫：XHS_PY 默认值必须是绝对路径，且保留 ${XHS_PY:-...} 覆盖能力。
+
+    2026-10-26：解释器从 ~/.hermes/xhs_skills/venv 改为 pyenv 3.11.15 全局环境
+    （专用 venv 反复消失，根因未明；pyenv 环境已被 painter/vlogger 验证）。
+    原断言 "xhs_skills/venv" in common 已过时，改为断言路径显式且可覆盖 ——
+    保留原测试的防护意图（防止 $XHS_PY 被改坏），不削弱。
+    """
     common = (PROJ / "bin" / "_xhs_common.sh").read_text(encoding="utf-8")
-    assert "xhs_skills/venv" in common, "$XHS_PY 不该指向已搬迁的 venv"
+    assert 'XHS_PY="${XHS_PY:-' in common, "XHS_PY 必须保留 ${XHS_PY:-...} 覆盖模式"
+    m = re.search(r'XHS_PY="\$\{XHS_PY:-(.+?)\}"', common)
+    assert m, "找不到 XHS_PY 默认值"
+    default = m.group(1)
+    assert default.startswith(("$HOME/", "/")), \
+        f"XHS_PY 默认值必须是绝对路径，实际: {default}"

@@ -66,7 +66,7 @@
 | **① shim 层** | `~/.hermes/scripts/` | 11 个 164–723 字节的薄 wrapper，唯一职责是转发到本项目 `bin/`+`core/`。cron 只认它们 | **必须原地留着**，不能迁、不能改成 symlink |
 | **② 上游快照** | 本项目 `vendor/xhs/` | `cdp_publish.py`（4892 行）等 4 个文件，取自独立仓库 `white0dew/XiaohongshuSkills`（MIT），**2026-09-27 vendored 进来** | 尽量不改；改了就与上游分叉了，细节见 `vendor/xhs/README.md` |
 | **③ 项目实现** | 本项目 `bin/` + `core/` | 真实业务逻辑，100% 在项目里 | 改逻辑只改这里 |
-| **④ 解释器依赖** | `~/.hermes/xhs_skills/venv/` | edge-tts / playwright / websockets，**32MB 二进制，故意留在项目外** | 由 `bin/_xhs_common.sh` 的 `$XHS_PY` 指向 |
+| **④ 解释器依赖** | `~/.pyenv/versions/3.11.15/` (pyenv 全局) | mlx / mlx-audio（Qwen3-TTS TTS 引擎）/ playwright / websockets，**数百 MB 二进制，故意留在项目外** | 由 `bin/_xhs_common.sh` 的 `$XHS_PY` 指向 |
 
 ### 为什么 vendor 进来（2026-09-27）
 
@@ -175,7 +175,7 @@ print(sorted(xhs))
 - **CDP 代码**: `vendor/xhs/` — cdp_publish.py、chrome_launcher.py、feed_explorer.py、run_lock.py
   （2026-09-27 从上游 `white0dew/XiaohongshuSkills` vendored 进来；上游仓库仍在
   `~/.hermes/xhs_skills/` 原处，未被改动）
-- **虚拟环境**: CDP 脚本（`cdp_publish.py`/`chrome_launcher.py`）用 `~/.hermes/xhs_skills/venv/`；
+- **虚拟环境**: CDP 脚本（`cdp_publish.py`/`chrome_launcher.py`）用 `~/.pyenv/versions/3.11.15/bin/python3` (pyenv 全局)；
   但 Playwright 渲染器 `generators/render_card.py` 依赖 playwright，只在 `~/.hermes/hermes-agent/venv/` 里有，
   手动跑渲染必须用后者（01:00 LLM cron 本身就在 agent 环境里，无需切换）
 - **Chrome Profile**: `~/Google/Chrome/XiaohongshuProfile/`
@@ -219,13 +219,13 @@ Hermes cron 不走 login shell，`PATH` 里没有 `~/.pyenv/shims`，也没有 v
 
 1. **裸 `python3` 解析到的可能不是你以为的解释器** —— 渲染路径尤其危险：
    `generators/render_card.py` 依赖 playwright，而它**只**装在
-   `~/.hermes/hermes-agent/venv/`，不在 `~/.hermes/xhs_skills/venv/`。
+   `~/.hermes/hermes-agent/venv/`。
    01:00 LLM cron 本身跑在 agent 环境里所以没事，但**手动**跑渲染必须显式指定解释器。
 2. **别在 shim 里依赖 `which python3` 之类** —— 一旦 shim 用 `which` 决定用哪个
    解释器，cron 下会拿到与交互式 shell 不同的结果，同样的脚本时好时坏。
 
 本项目的做法是**不猜**：wrapper 里统一用 `bin/_xhs_common.sh` 里的
-`$XHS_PY`（默认 `~/.hermes/xhs_skills/venv/bin/python3`），并由
+`$XHS_PY`（默认 `~/.pyenv/versions/3.11.15/bin/python3`），并由
 `require_python()` 在解释器缺失/不可执行时**大声失败（exit 1）**，
 而不是静默退化到系统 python 报一堆无关的 `ModuleNotFoundError`。
 

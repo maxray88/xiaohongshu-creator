@@ -185,7 +185,7 @@ def main() -> int:
         "cards": [
             # enumerate(cards, 1) 已经产出 1..6；此处不要再 +1。
             # 契约：index 必须 1..6（_cron_assemble.py 用 durations.get(i) 按
-            # TTS 输出的 card_1..6.mp3 索引，check_content_quality.py 的
+            # TTS 输出的 card_1..6.wav 索引，check_content_quality.py 的
             # 自愈 manifest 也是 1..6）。写成 i+1 会让 index 变成 2..7，
             # 卡 6 永远取不到时长并静默回退 3.0s。
             {"index": i, "file": f"card_v2_{i}_{slot}.html", "type": slot}

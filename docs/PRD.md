@@ -68,7 +68,7 @@
 - 内容生成：01:00 V1（图文）+ 02:00 V2（视频卡）— 文本一致、配色轮换、SEO 红线
 - 渲染：02:30 HTML→JPG（V2 横屏已修复为 1080×1440@2x）、V1 渲染（Playwright）
 - 发布：03:00 图文草稿 + 05:00 视频草稿（CDP + Chrome Profile）
-- 合成：04:00 `Edge-TTS zh-CN-XiaoyiNeural +10%` + ffmpeg 竖版拼剪 + 文本清洗（emoji/CTA/标题/页码过滤）
+- 合成：04:00 `Qwen3-TTS 12Hz 1.7B VoiceDesign`（MLX 本地推理，统一音色 instruct，`speed=1.1`，`lang_code=zh`）+ ffmpeg 竖版拼剪 + 文本清洗（emoji/CTA/标题/页码过滤）
 - 运维：05:30 滚动清理、06:00 自检
 
 ### 4.2 Out of Scope
@@ -146,7 +146,7 @@ LLM cron 02:00 V2 ─┘                              └─► 04:00 assemble (
 - 数据：`~/.hermes/data/xhs_treehole/` — `day_YYYYMMDD_dayN` / `day_YYYYMMDD_dayN_v2` / `published_content.json`
 - 工程：`~/02_Cronjobs_Projects/01_XHS_Daily_Post/bin|core|generators|legacy`
 - CDP 库：`vendor/xhs/cdp_publish.py|chrome_launcher.py|feed_explorer.py|run_lock.py`（2026-09-27 vendored 进项目；上游仓库仍在 `~/.hermes/xhs_skills/` 未动）
-  venv 仍在 `~/.hermes/xhs_skills/venv`（32MB 二进制，不进 Git）；Playwright 渲染用 `hermes-agent/venv`
+  解释器用 pyenv 3.11.15 全局环境（`~/.pyenv/versions/3.11.15/bin/python3`）；Playwright 渲染用 `hermes-agent/venv`
 - Chrome：`~/Google/Chrome/XiaohongshuProfile`（**单数、无 /default**，仅小红书 147M），cron headless（`XHS_CHROME_HEADLESS=1`），手动 headed
   ⚠️ 与多平台混杂的 `~/Google/Chrome/XiaohongshuProfiles/default/`（5.5G）只差一个 `s` 但不是同一目录；实际路径由 `vendor/xhs/chrome_launcher.py` 的 `PROFILE_DIR_NAME` 决定
 

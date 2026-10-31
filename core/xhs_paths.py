@@ -16,11 +16,16 @@
 
 现在 CDP 模块统一 vendored 到 `vendor/xhs/`，本模块是它唯一的引用点。
 
-## 注意 venv 不在这里
+## 注意解释器不在这里
 
-Python **二进制依赖**（edge-tts / playwright / websockets）仍装在
-`~/.hermes/xhs_skills/venv/`，没有搬进项目 —— 那是 32MB 的可执行文件，
-不该进 Git。shell 侧由 `bin/_xhs_common.sh` 的 `$XHS_PY` 指向它。
+Python **二进制依赖**（mlx / mlx-audio —— Qwen3-TTS 推理引擎、
+playwright / websockets）装在 pyenv 3.11.15 全局环境
+（`~/.pyenv/versions/3.11.15/bin/python3`），没有搬进项目 ——
+那是几百 MB 的可执行文件，不该进 Git。shell 侧由
+`bin/_xhs_common.sh` 的 `$XHS_PY` 指向它。
+
+注：TTS 引擎 2026-10-12 切到 Qwen3-TTS VoiceDesign（本地 MLX 推理，因原云端
+服务上游返回 403），所以 venv 里要装的是 `mlx` + `mlx-audio`。
 
 **代码**（vendor/xhs/*.py）和**依赖**（venv/）是两件事，改一个不影响另一个。
 """
@@ -34,9 +39,8 @@ PROJ_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VENDOR_XHS = os.path.join(PROJ_ROOT, "vendor", "xhs")
 CORE_DIR = os.path.join(PROJ_ROOT, "core")
 
-# 仍留在项目外的 venv（shell 侧 $XHS_PY 用的就是这个）
-XHS_SKILLS = os.path.expanduser("~/.hermes/xhs_skills")
-VENV_PYTHON = os.path.join(XHS_SKILLS, "venv", "bin", "python3")
+# pyenv 3.11.15 全局环境（shell 侧 $XHS_PY 用的就是这个）
+VENV_PYTHON = os.path.expanduser("~/.pyenv/versions/3.11.15/bin/python3")
 
 
 def add_cdp_to_path() -> str:

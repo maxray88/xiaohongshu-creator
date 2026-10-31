@@ -48,8 +48,8 @@ import 阶段炸。所以一并带上，保持与上游逐字一致。
 
 ## 不在这个目录里的东西
 
-- **venv 不在这里。** Python 依赖（edge-tts / playwright / websockets）
-  仍装在 `~/.hermes/xhs_skills/venv/`，因为那是 32MB 的二进制依赖，
+- **venv 不在这里。** Python 依赖（mlx / mlx-audio / playwright / websockets）
+  装在 pyenv 3.11.15 全局环境（`~/.pyenv/versions/3.11.15/bin/python3`），
   不该进 Git。`bin/_xhs_common.sh` 的 `$XHS_PY` 指向它。
 - `publish_pipeline.py`、`image_downloader.py`、`account_manager.py`
   本项目零引用，**未** vendor。

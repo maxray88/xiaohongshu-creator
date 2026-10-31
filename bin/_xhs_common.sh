@@ -88,9 +88,11 @@ list_pipeline_chrome() {
       && index($0, prof) && index($0, cdp) { print $1, $2, $3 }'
 }
 
-# 校验 venv 解释器存在。原先硬编码路径，venv 缺失时 shell 找不到
-# 解释器，错误信息与真实原因无关，排查困难。
-XHS_PY="${XHS_PY:-$HOME/.hermes/xhs_skills/venv/bin/python3}"
+# 校验解释器存在。原先硬编码路径，缺失时 shell 找不到解释器，
+# 错误信息与真实原因无关，排查困难。
+# 2026-10-26: 解释器从专用 venv 改为 pyenv 3.11.15 全局环境
+# （专用 venv 反复消失，根因未明；pyenv 环境已被 painter/vlogger 验证）
+XHS_PY="${XHS_PY:-$HOME/.pyenv/versions/3.11.15/bin/python3}"
 
 # 跑项目内的 python 脚本：统一解释器来源，不再各写硬编码路径
 run_project_python() {
@@ -100,9 +102,9 @@ run_project_python() {
 
 require_python() {
   if [ ! -x "$XHS_PY" ]; then
-    echo "❌ venv 解释器不存在或不可执行: $XHS_PY"
-    echo "   → XHS 依赖装在专用 venv 里（edge-tts / playwright），用系统 python 会缺"
-    echo "   → 修复: python3 -m venv ~/.hermes/xhs_skills/venv 后安装 requirements.txt"
+    echo "❌ 解释器不存在或不可执行: $XHS_PY"
+    echo "   → XHS 依赖（mlx / mlx-audio / playwright）装在 pyenv 3.11.15 全局环境"
+    echo "   → 修复: 检查 ~/.pyenv/versions/3.11.15/bin/python3 是否存在，或设 XHS_PY 覆盖"
     return 1
   fi
   return 0

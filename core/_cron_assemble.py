@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 情绪树洞 — 竖版视频笔记合成器 (1080×1920, 9:16)
-Edge-TTS 主引擎，全卡统一声音。
+Qwen3-TTS VoiceDesign 主引擎，全卡统一音色。
 自动找到最新的 day 目录，支持 v1/v2。
 
 S1 重构：TTS 切片移至 tts_slicing.py，ffmpeg 合成移至 ffmpeg_build.py。
@@ -19,11 +19,12 @@ from tts_slicing import get_card_texts
 # ── 向后兼容 re-export（tests/test_tts_slicing.py 仍从此模块取）──
 from tts_slicing import clean_tts_text, _truncate_tts
 from ffmpeg_build import (
-    get_audio_duration, _valid_mp4, TTS_VOICE, TTS_RATE,
+    get_audio_duration, _valid_mp4,
+    QWEN_TTS_MODEL, QWEN_TTS_INSTRUCT, QWEN_TTS_SPEED, QWEN_TTS_LANG,
 )
 
-__all__ = ["clean_tts_text", "_truncate_tts",
-           "get_audio_duration", "_valid_mp4", "TTS_VOICE", "TTS_RATE"]
+__all__ = ["clean_tts_text", "_truncate_tts", "get_audio_duration", "_valid_mp4",
+           "QWEN_TTS_MODEL", "QWEN_TTS_INSTRUCT", "QWEN_TTS_SPEED", "QWEN_TTS_LANG"]
 
 
 BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
@@ -156,7 +157,7 @@ def main():
         preview = t[:60] + ("…" if len(t) > 60 else "")
         print(f"  Card {i}: {len(t)} chars — {preview}")
 
-    # Step 3: TTS — Edge-TTS（唯一引擎，全卡统一声音）
+    # Step 3: TTS — Qwen3-TTS VoiceDesign（唯一引擎，全卡统一音色）
     durations, engine_used = generate_tts(texts, video_dir)
     print(f"  Durations: { {k: f'{v:.2f}s' for k, v in durations.items()} }")
 

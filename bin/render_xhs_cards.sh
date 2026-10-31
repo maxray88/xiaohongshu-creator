@@ -9,15 +9,13 @@
 # explicitly (graceful skips + `exit $EXIT_CODE`), so no early abort is needed.
 
 BASE="$HOME/.hermes/data/xhs_treehole"
-# 解释器（venv 仍留在项目外，是 32MB 二进制依赖，不进 Git）
-VENV="$HOME/.hermes/xhs_skills/venv/bin/activate"
 # 项目根目录 —— 推导而非硬编码，换机器/改路径不会指错地方
 PROJ_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT="$PROJ_ROOT/core/render_xhs_cards.py"
 
 # 共享逻辑（kill_pipeline_chrome / require_python）必须在**开头**引入，
-# 否则脚本前半段的内联 python 会用系统 python3、后半段用 venv ——
-# 同一脚本里两套解释器，venv 缺失时报错位置会误导排查。
+# 否则脚本前半段的内联 python 会用系统 python3、后半段用 $XHS_PY ——
+# 同一脚本里两套解释器，解释器缺失时报错位置会误导排查。
 . "$(dirname "$0")/_xhs_common.sh"
 if ! require_python; then
   echo "Exit code: 1"
@@ -104,8 +102,7 @@ sleep 1
 # Headless — CDP screenshots need no GUI window
 export XHS_CHROME_HEADLESS=1
 
-# Source venv and run render script
-source "$VENV"
+# Run render script —— $XHS_PY 已指向正确解释器，无需 activate
 "$XHS_PY" "$SCRIPT" "$V2_DIR"
 EXIT_CODE=$?
 
