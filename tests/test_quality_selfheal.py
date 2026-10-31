@@ -144,3 +144,23 @@ def test_pick_theme_avoids_excluded():
                                  encoding="utf-8"))["themes"])
     first, second = tokens[0], tokens[1]
     assert cq._pick_theme(exclude={first}) == second
+
+
+def test_pick_today_v1_numeric_not_lexicographic():
+    assert cq._pick_today_v1(
+        ["day_20260101_day9", "day_20260101_day10"], "20260101"
+    ) == "day_20260101_day10"
+
+
+def test_pick_today_v1_max_and_other_dates_ignored():
+    assert cq._pick_today_v1(
+        ["day_20260101_day104", "day_20260101_day99", "day_20251231_day200"],
+        "20260101",
+    ) == "day_20260101_day104"
+
+
+def test_pick_today_v1_none_and_malformed():
+    assert cq._pick_today_v1(
+        ["day_20251231_day1", "day_bogus", "day_2026010_day5", "notes"],
+        "20260101",
+    ) is None

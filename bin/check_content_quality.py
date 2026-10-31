@@ -60,6 +60,23 @@ def _load_json(path):
     return load_json_tolerant(path, default=None)
 
 
+_DAY_RE = re.compile(r"^day_(\d{8})_day(\d+)$")
+
+
+def _pick_today_v1(day_names, today_c):
+    """Return the today dir with the largest numeric dayN, or None."""
+    best = None
+    best_n = -1
+    for name in day_names:
+        m = _DAY_RE.match(name or "")
+        if not m or m.group(1) != today_c:
+            continue
+        n = int(m.group(2))
+        if n > best_n:
+            best, best_n = name, n
+    return best
+
+
 def _tts_slices_ok(v1_dir, manifest_v2):
     """TTS 切片可用性：沿用 _cron_assemble.get_card_texts 的切片逻辑，要求 6 卡非空、
     method(4) 与 gentle(5) 不重复、每卡 ≤300 字。返回 (ok, detail)。"""
@@ -92,7 +109,7 @@ def main() -> int:
         [d for d in os.listdir(BASE) if d.startswith("day_") and not d.endswith("_v2")]
         if os.path.isdir(BASE) else []
     )
-    today_v1 = next((d for d in reversed(days) if d[4:12] == today_c), None)
+    today_v1 = _pick_today_v1(days, today_c)
     if today_v1 is None:
         print("❌ XHS 内容质量门：今天没有生成 V1 内容（01:00 生成未跑或失败）")
         print("=" * 46)

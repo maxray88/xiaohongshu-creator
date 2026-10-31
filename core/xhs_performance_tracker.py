@@ -7,7 +7,7 @@
 
 不依赖 xhs 库 — 纯 CDP 调用 creator center 的 internal API。
 """
-import sys, os, json, time, re
+import sys, os, json, time, re, difflib
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -103,27 +103,86 @@ def _read_table_rows(pub):
             var table = document.querySelector('table');
             if (!table) return null;
             var rows = table.querySelectorAll('tr');
-            var result = [];
-            for (var i = 1; i < rows.length; i++) {
-                var cells = rows[i].querySelectorAll('td');
-                if (cells.length >= 10) {
-                    result.push({
-                        title_time: cells[0].textContent.trim(),
-                        exposures: cells[1].textContent.trim(),
-                        views: cells[2].textContent.trim(),
-                        cover_click_rate: cells[3].textContent.trim(),
-                        likes: cells[4].textContent.trim(),
-                        comments: cells[5].textContent.trim(),
-                        saves: cells[6].textContent.trim(),
-                        follows: cells[7].textContent.trim(),
-                        shares: cells[8].textContent.trim(),
-                        avg_watch_time: cells[9].textContent.trim()
-                    });
+
+            function readCells(row) {
+                var cells = row.querySelectorAll('th, td');
+                var values = [];
+                for (var i = 0; i < cells.length; i++) {
+                    values.push(cells[i].textContent.trim());
+                }
+                return values;
+            }
+
+            var headers = [];
+            var data = [];
+            for (var i = 0; i < rows.length; i++) {
+                var values = readCells(rows[i]);
+                if (i === 0) {
+                    headers = values;
+                } else {
+                    data.push(values);
                 }
             }
-            return result;
+            return {"headers": headers, "rows": data};
         })()
     """)
+
+
+def _map_table(raw):
+    """按表头名称映射表格；兼容旧调用方传入的已映射行。"""
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or "headers" not in raw or "rows" not in raw:
+        return raw
+
+    field_order = (
+        "avg_watch_time",
+        "cover_click_rate",
+        "title_time",
+        "exposures",
+        "views",
+        "likes",
+        "comments",
+        "saves",
+        "follows",
+        "shares",
+    )
+    mapped_indexes = {field: None for field in field_order}
+    for index, header in enumerate(raw.get("headers", [])):
+        header = str(header).strip()
+        if "平均" in header:
+            field = "avg_watch_time"
+        elif "点击率" in header:
+            field = "cover_click_rate"
+        elif "标题" in header:
+            field = "title_time"
+        elif "曝光" in header:
+            field = "exposures"
+        elif "播放" in header or "观看" in header:
+            field = "views"
+        elif "点赞" in header or header == "赞":
+            field = "likes"
+        elif "评论" in header:
+            field = "comments"
+        elif "收藏" in header:
+            field = "saves"
+        elif "关注" in header or "涨粉" in header or "粉丝" in header:
+            field = "follows"
+        elif "分享" in header:
+            field = "shares"
+        else:
+            continue
+        if mapped_indexes[field] is None:
+            mapped_indexes[field] = index
+
+    rows = []
+    for row in raw.get("rows", []):
+        mapped = {field: "" for field in field_order}
+        for field, index in mapped_indexes.items():
+            if index is not None and index < len(row):
+                mapped[field] = str(row[index]).strip()
+        rows.append(mapped)
+    return rows
 
 
 def parse_number(val):
@@ -167,6 +226,7 @@ def fetch_all_note_data(pub):
         rows = _read_table_rows(pub)
         if rows is None:
             raise RuntimeError(f"第 {current_page} 页找不到表格元素（页面未加载/被重定向）")
+        rows = _map_table(rows)
         new = 0
         for r in rows:
             key = (r.get("title_time") or "", r.get("views") or "")
@@ -195,6 +255,7 @@ def fetch_all_note_data(pub):
             for _ in range(10):
                 time.sleep(1)
                 probe = _read_table_rows(pub)
+                probe = _map_table(probe) if probe is not None else None
                 if probe:
                     first_now = (probe[0].get("title_time") or "") if probe else ""
                     if first_now != (rows[0].get("title_time") or "" if rows else ""):
@@ -237,10 +298,12 @@ def _parse_title_time(title_time_str):
 def match_notes_to_published(rows, published):
     """Match DOM rows to our published_content.json entries by title."""
     title_to_published = {}
+    normalized_title_to_published = {}
     for p in published:
         t = (p.get("title") or "").strip()
         if t:
             title_to_published[t] = p
+            normalized_title_to_published.setdefault("".join(t.split()), p)
 
     matched = []
     unmatched = []
@@ -248,6 +311,23 @@ def match_notes_to_published(rows, published):
     for row in rows:
         title, publish_time = _parse_title_time(row.get("title_time", ""))
         pub = title_to_published.get(title)
+
+        if pub is None:
+            normalized_row_title = "".join(title.split())
+            pub = normalized_title_to_published.get(normalized_row_title)
+
+        if pub is None:
+            scored = []
+            for normalized_title, candidate in normalized_title_to_published.items():
+                score = difflib.SequenceMatcher(
+                    None, normalized_row_title, normalized_title).ratio()
+                scored.append((score, normalized_title, candidate))
+            scored.sort(key=lambda item: item[0], reverse=True)
+            if scored and scored[0][0] >= 0.85:
+                best_score, _, best_candidate = scored[0]
+                second_score = scored[1][0] if len(scored) > 1 else -1.0
+                if best_score > second_score:
+                    pub = best_candidate
 
         views = parse_number(row.get("views"))
         likes = parse_number(row.get("likes"))
@@ -343,7 +423,7 @@ def generate_report(matched, unmatched, time_slots):
     total_shares = sum(e.get("shares", 0) for e in matched)
     avg_ratio = round(total_saves / total_likes, 4) if total_likes > 0 else 0.0
 
-    # Top posts by save-to-like ratio (min 5 likes to be meaningful)
+    # Top posts by save-to-like ratio (min 3 likes to be meaningful)
     top_posts = sorted(
         [e for e in matched if e.get("likes", 0) >= 3],
         key=lambda x: x.get("save_to_like_ratio", 0),

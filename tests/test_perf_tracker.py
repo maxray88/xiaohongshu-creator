@@ -12,6 +12,7 @@ H7/H8（2026-09-27 审计）：
 
 import os
 import sys
+import difflib
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 import xhs_performance_tracker as T  # noqa: E402
@@ -178,3 +179,90 @@ def test_parse_number_handles_dash_and_commas():
     assert T.parse_number("1,234") == 1234
     assert T.parse_number("1，234") == 1234
     assert T.parse_number("12.9") == 12
+
+
+# ── P0 #10：表头映射 ─────────────────────────────────────────────
+
+def test_header_mapping_survives_column_shuffle():
+    raw = {
+        "headers": ["收藏", "点赞", "标题", "操作", "分享", "评论",
+                    "观看", "曝光", "平均观看时长", "关注", "点击率"],
+        "rows": [["7", "3", "测试标题发布于2026-09-20 10:00", "编辑",
+                  "2", "4", "120", "1000", "3s", "1", "5%"]],
+    }
+    rows = T._map_table(raw)
+    assert rows == [{
+        "title_time": "测试标题发布于2026-09-20 10:00",
+        "exposures": "1000",
+        "views": "120",
+        "cover_click_rate": "5%",
+        "likes": "3",
+        "comments": "4",
+        "saves": "7",
+        "follows": "1",
+        "shares": "2",
+        "avg_watch_time": "3s",
+    }]
+
+
+def test_header_mapping_missing_title_header():
+    raw = {
+        "headers": ["曝光", "播放", "点击率", "点赞", "评论", "收藏",
+                    "关注", "分享", "平均观看时长"],
+        "rows": [["1000", "120", "5%", "3", "4", "7", "1", "2", "3s"]],
+    }
+    rows = T._map_table(raw)
+    assert len(rows) == 1
+    assert all(row["title_time"] == "" for row in rows)
+
+
+def test_legacy_dict_rows_pass_through():
+    rows = [_row("legacy")]
+    assert T._map_table(rows) is rows
+
+
+# ── P0 #11：模糊标题匹配 ─────────────────────────────────────────
+
+def test_fuzzy_match_tolerates_whitespace_variant():
+    published = [{"title": "测试标题", "day_num": 1, "date": "2026-09-20"}]
+    dom_rows = [{"title_time": "测试标题 发布于2026-09-20 10:00"}]
+    matched, unmatched = T.match_notes_to_published(dom_rows, published)
+    assert len(matched) == 1
+    assert not unmatched
+    assert matched[0]["title"] == "测试标题"
+
+
+def test_fuzzy_match_leaves_different_titles_unmatched():
+    published = [{"title": "完全不同的标题"}]
+    dom_rows = [{"title_time": "另一篇笔记发布于2026-09-20 10:00"}]
+    matched, unmatched = T.match_notes_to_published(dom_rows, published)
+    assert not matched
+    assert len(unmatched) == 1
+
+
+def test_fuzzy_match_tie_stays_unmatched():
+    row_title = "a" * 20
+    published = [
+        {"title": row_title[:-1] + "b"},
+        {"title": row_title[:-1] + "c"},
+    ]
+    ratios = [
+        difflib.SequenceMatcher(None, row_title, p["title"]).ratio()
+        for p in published
+    ]
+    assert ratios[0] == ratios[1] >= 0.85
+
+    dom_rows = [{"title_time": row_title}]
+    matched, unmatched = T.match_notes_to_published(dom_rows, published)
+    assert not matched
+    assert len(unmatched) == 1
+
+
+def test_normalized_exact_match_bypasses_fuzzy():
+    published = [{"title": "测试标题", "day_num": 1, "date": "2026-09-20"}]
+    row = _row("X")
+    row["title_time"] = "测 试标题"
+    matched, unmatched = T.match_notes_to_published([row], published)
+    assert len(matched) == 1
+    assert not unmatched
+    assert matched[0]["title"] == "测 试标题"
