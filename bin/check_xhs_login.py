@@ -18,6 +18,7 @@ import os
 import sys
 import time
 from contextlib import redirect_stdout
+from urllib.parse import urlsplit
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
 from xhs_paths import add_cdp_to_path  # noqa: E402
@@ -65,8 +66,26 @@ def main() -> int:
             if failure is None:
                 try:
                     pub._navigate(PUBLISH_URL)
-                    time.sleep(3)
-                    href = pub._evaluate("window.location.href") or ""
+                    href, ready = "", ""
+                    for _ in range(12):
+                        try:
+                            href = pub._evaluate("window.location.href") or ""
+                            ready = pub._evaluate("document.readyState") or ""
+                        except CDPError as e:
+                            failure = ("❌ XHS 登录探针：发布页导航失败", f"• [探针] {e}")
+                            break
+                        if href and ready == "complete":
+                            # late JS redirects (challenge pages) land a beat after load —
+                            # require one more identical reading before trusting the URL
+                            try:
+                                href2 = pub._evaluate("window.location.href") or ""
+                            except CDPError as e:
+                                failure = ("❌ XHS 登录探针：发布页导航失败", f"• [探针] {e}")
+                                break
+                            if href2 == href:
+                                break
+                            href = href2
+                        time.sleep(1)
                 except CDPError as e:
                     failure = ("❌ XHS 登录探针：发布页导航失败", f"• [探针] {e}")
                 finally:
@@ -80,10 +99,33 @@ def main() -> int:
             print(failure[1])
             return 1
 
-        if "login" in href.lower():
+        low = (href or "").lower()
+        BLOCK_MARKERS = ("login", "passport", "auth", "captcha", "sso", "verify")
+        expected = urlsplit(PUBLISH_URL)
+        actual = urlsplit(href or "")
+        try:
+            jar = pub._send("Network.getAllCookies", {})
+            cookie_count = len(jar.get("cookies", []))
+        except Exception:
+            cookie_count = None
+        cookie_line = (
+            f"• [会话] Cookie 数量：{cookie_count}"
+            if cookie_count is not None
+            else "• [会话] Cookie jar 不可读"
+        )
+        if any(m in low for m in BLOCK_MARKERS):
             print("❌ XHS 登录探针：登录已过期（被重定向到登录页）")
             print("=" * 46)
             print("• [登录] 03:00 图文与 05:00 视频草稿将因未登录而失败")
+            print("备注：")
+            print("  · 请用有头 Chrome 打开创作平台手动扫码登录后重跑当日发布任务")
+            print(cookie_line)
+            return 1
+        elif actual.netloc != expected.netloc or "publish" not in actual.path:
+            print("❌ XHS 登录探针：登录状态异常（发布页未如预期加载，可能被鉴权重定向）")
+            print("=" * 46)
+            print(f"• [当前] {href}")
+            print(cookie_line)
             print("备注：")
             print("  · 请用有头 Chrome 打开创作平台手动扫码登录后重跑当日发布任务")
             return 1

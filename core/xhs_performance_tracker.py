@@ -128,7 +128,7 @@ def _read_table_rows(pub):
     """)
 
 
-def _map_table(raw):
+def _map_table(raw: dict | list | None) -> list | dict | None:
     """按表头名称映射表格；兼容旧调用方传入的已映射行。"""
     if raw is None:
         return None

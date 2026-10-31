@@ -63,7 +63,7 @@ def _load_json(path):
 _DAY_RE = re.compile(r"^day_(\d{8})_day(\d+)$")
 
 
-def _pick_today_v1(day_names, today_c):
+def _pick_today_v1(day_names: list, today_c: str) -> str | None:
     """Return the today dir with the largest numeric dayN, or None."""
     best = None
     best_n = -1
