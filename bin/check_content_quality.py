@@ -20,15 +20,20 @@ import re
 import sys
 from datetime import datetime
 
-BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
-
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
-from theme_rotation import manifest_color_scheme, recent_schemes, validate_rotation
+from theme_rotation import (
+    manifest_color_scheme,
+    pick_today_v1 as _pick_today_v1,
+    recent_schemes,
+    validate_rotation,
+)
 from manifest_title import manifest_title, plain_title, plain_series
 from content_checks import has_emoji as _has_emoji
 from content_checks import load_json_tolerant
-from xhs_config import TITLE_MAX
+from xhs_config import DATA_BASE, TITLE_MAX
 from io_utils import atomic_write_json
+
+BASE = DATA_BASE
 
 QUALITY_THRESHOLD = 7.0
 
@@ -58,23 +63,6 @@ def _pick_theme(exclude) -> str:
 
 def _load_json(path):
     return load_json_tolerant(path, default=None)
-
-
-_DAY_RE = re.compile(r"^day_(\d{8})_day(\d+)$")
-
-
-def _pick_today_v1(day_names: list, today_c: str) -> str | None:
-    """Return the today dir with the largest numeric dayN, or None."""
-    best = None
-    best_n = -1
-    for name in day_names:
-        m = _DAY_RE.match(name or "")
-        if not m or m.group(1) != today_c:
-            continue
-        n = int(m.group(2))
-        if n > best_n:
-            best, best_n = name, n
-    return best
 
 
 def _tts_slices_ok(v1_dir, manifest_v2):

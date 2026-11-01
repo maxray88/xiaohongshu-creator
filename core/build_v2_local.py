@@ -30,10 +30,12 @@ import sys
 import time
 import glob
 
-BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
 PROJ = os.path.join(os.path.expanduser("~"), "02_Cronjobs_Projects", "01_XHS_Daily_Post")
 sys.path.insert(0, os.path.join(PROJ, "core"))
-from theme_rotation import recent_schemes  # noqa: E402  (pick_theme 自实现校验，不用 validate_rotation)
+from theme_rotation import pick_today_v1, recent_schemes  # noqa: E402  (pick_theme 自实现校验，不用 validate_rotation)
+from xhs_config import DATA_BASE  # noqa: E402
+
+BASE = DATA_BASE
 
 # 逻辑卡位 → V1 文件名后缀。文件名本身不写死：
 # 01:00 LLM 历史上产出过两种命名（card1_cover.html 与 card_01_cover.html，
@@ -107,7 +109,7 @@ def main() -> int:
         days = sorted(d for d in os.listdir(BASE)
                       if d.startswith("day_") and not d.endswith("_v2")
                       and os.path.isdir(os.path.join(BASE, d)))
-        v1_name = next((d for d in reversed(days) if d[4:12] == today_c), None)
+        v1_name = pick_today_v1(days, today_c)
         if not v1_name:
             print(f"❌ 今天（{today_c}）没有 V1 目录——01:00 未产出，V2 无法构建")
             return 1

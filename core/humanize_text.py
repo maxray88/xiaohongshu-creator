@@ -16,6 +16,7 @@ import re
 import sys
 
 from io_utils import atomic_write_json
+from xhs_config import DATA_BASE
 
 # 书面 → 口语替换表
 REPLACEMENTS = {
@@ -282,7 +283,7 @@ def main():
         day_dir = sys.argv[1]
     else:
         # 默认找今天的 V1 目录
-        base = os.path.expanduser("~/.hermes/data/xhs_treehole")
+        base = DATA_BASE
         import time
         today_c = time.strftime("%Y%m%d")
         days = sorted(

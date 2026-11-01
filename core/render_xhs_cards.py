@@ -14,11 +14,13 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 add_cdp_to_path()
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
 from chrome_launcher import ensure_chrome
+from cdp_retry import run_with_retries  # noqa: E402
 from io_utils import atomic_write_json  # noqa: E402
+from xhs_config import COMFYUI_HOST, COMFYUI_PORT  # noqa: E402
 
 
 def _try_comfyui(html_path: str, jpg_path: str) -> bool:
-    """Try ComfyUI rendering via local API http://127.0.0.1:8188.
+    """Try ComfyUI rendering via local API (host/port from xhs_config).
     Uses comfy_xhs_card workflow if available. Returns True on success.
     Stub: health-check only; full POST workflows/comfy_xhs_card.json not yet wired,
     so always falls back to CDP. Safe: returns False, CDP is primary.
@@ -26,7 +28,8 @@ def _try_comfyui(html_path: str, jpg_path: str) -> bool:
     try:
         import urllib.request, urllib.error
         # Health check
-        urllib.request.urlopen("http://127.0.0.1:8188/system_stats", timeout=2).read()
+        comfyui_url = f"http://{COMFYUI_HOST}:{COMFYUI_PORT}/system_stats"
+        urllib.request.urlopen(comfyui_url, timeout=2).read()
         # For now ComfyUI HTML→image is background generation; if workflow not loaded,
         # fall back to CDP. This stub ensures the primary path is attempted before CDP.
         # Full integration: POST workflows/comfy_xhs_card.json with theme tokens + text,
@@ -138,7 +141,11 @@ def main():
                     "mobile": False,
                 })
                 time.sleep(0.3)
-                result = p._send("Page.captureScreenshot", {"format": "jpeg", "quality": 92})
+                result = run_with_retries(
+                    lambda: p._send("Page.captureScreenshot",
+                                    {"format": "jpeg", "quality": 92}),
+                    label=f"Card {i} 截图",
+                )
                 data = result.get("data") if isinstance(result, dict) else None
                 if not data:
                     raise ValueError("captureScreenshot 未返回 data（页面可能未加载完）")

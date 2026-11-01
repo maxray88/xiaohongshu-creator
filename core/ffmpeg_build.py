@@ -527,7 +527,7 @@ def render_segment(image: str, duration: float, out: str, safe_margin: int = 48)
         # Actual flags depend on installed version; keep minimal and catch failures.
         cmd = ["hyperframes", "zoom", "--input", image, "--duration", str(duration), "--output", out, "--margin", str(safe_margin)]
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-        return r.returncode == 0 and os.path.isfile(out)
+        return r.returncode == 0 and os.path.isfile(out) and os.path.getsize(out) > 0
     except Exception as e:
         print(f"[DBG] hyperframes render failed: {e}", file=sys.stderr)
         return False

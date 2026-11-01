@@ -25,9 +25,16 @@ from theme_rotation import parse_day_dir, recent_schemes, validate_rotation
 from manifest_title import manifest_title, plain_title, plain_series
 from content_checks import has_emoji as _has_emoji
 from content_checks import load_json_tolerant
-from xhs_config import TITLE_MAX
+from xhs_config import (
+    CDP_HOST,
+    CDP_PORT,
+    COMFYUI_HOST,
+    COMFYUI_PORT,
+    DATA_BASE,
+    TITLE_MAX,
+)
 
-BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
+BASE = DATA_BASE
 JOBS_JSON = os.path.join(os.path.expanduser("~"), ".hermes", "cron", "jobs.json")
 
 # 脚本 cron 步骤：按 jobs.json 的 script 字段匹配，校验“今天运行过且状态 ok”
@@ -413,14 +420,18 @@ def main() -> int:
                     notes.append("[Cron] 图文存草稿 (03:00)：ok")
 
     # 探针：ComfyUI + Chrome CDP 可达性（按需拉起，检查时未运行属正常 → 仅备注告警，不计入失败）
-    if _probe_http("http://127.0.0.1:8188/system_stats", timeout=3):
-        notes.append("[探针] ComfyUI 127.0.0.1:8188 可达")
+    comfyui_url = f"http://{COMFYUI_HOST}:{COMFYUI_PORT}/system_stats"
+    cdp_url = f"http://{CDP_HOST}:{CDP_PORT}/json"
+    comfyui_endpoint = f"{COMFYUI_HOST}:{COMFYUI_PORT}"
+    cdp_endpoint = f"{CDP_HOST}:{CDP_PORT}"
+    if _probe_http(comfyui_url, timeout=3):
+        notes.append(f"[探针] ComfyUI {comfyui_endpoint} 可达")
     else:
-        notes.append("[探针] ⚠️ ComfyUI 127.0.0.1:8188 不可达（渲染将回退到 CDP，检查时未运行属正常）")
-    if _probe_http("http://127.0.0.1:9222/json", timeout=3):
-        notes.append("[探针] Chrome CDP 127.0.0.1:9222 可达")
+        notes.append(f"[探针] ⚠️ ComfyUI {comfyui_endpoint} 不可达（渲染将回退到 CDP，检查时未运行属正常）")
+    if _probe_http(cdp_url, timeout=3):
+        notes.append(f"[探针] Chrome CDP {cdp_endpoint} 可达")
     else:
-        notes.append("[探针] ⚠️ Chrome CDP 127.0.0.1:9222 不可达（发布时按需拉起，检查时未运行属正常）")
+        notes.append(f"[探针] ⚠️ Chrome CDP {cdp_endpoint} 不可达（发布时按需拉起，检查时未运行属正常）")
 
     notes.append("[提示] 图文草稿(03:00)存于 XHS 草稿箱，本地无法验证，请人工确认")
 

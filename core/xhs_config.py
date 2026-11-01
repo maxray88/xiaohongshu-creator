@@ -5,6 +5,8 @@ CDP 端口 9222 是本项目唯一正确的调试端口（9224 是其他平台�
 """
 from __future__ import annotations
 
+import os
+
 # ─── CDP ───────────────────────────────────────────
 CDP_HOST = "127.0.0.1"
 CDP_PORT = 9222
@@ -20,3 +22,14 @@ STATISTICS_URL = "https://creator.xiaohongshu.com/statistics/data-analysis"
 TITLE_MAX = 18          # 小红书标题上限 20，留 2 字余量
 CONTENT_MIN = 400
 CONTENT_MAX = 900
+
+
+# ─── 数据目录 ──────────────────────────────────────
+# 全项目唯一的 treehole 根目录。各模块不再各自 expanduser，
+# 只 `from xhs_config import ... as BASE`（变量名保持 BASE/TARGET 不变，
+# 测试 monkeypatch 的就是这些模块属性）。
+DATA_BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
+
+# ─── ComfyUI ───────────────────────────────────────
+COMFYUI_HOST = "127.0.0.1"
+COMFYUI_PORT = 8188

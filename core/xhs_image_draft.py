@@ -17,9 +17,15 @@ from draft_shared import (
     find_latest_dir, navigate_publish_page,
 )
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
-from xhs_config import CDP_HOST, CDP_PORT, CREATOR_HOST_FRAGMENT, PUBLISH_URL  # noqa: E402
+from xhs_config import (
+    CDP_HOST,
+    CDP_PORT,
+    CREATOR_HOST_FRAGMENT,
+    DATA_BASE,
+    PUBLISH_URL,
+)  # noqa: E402
 
-BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
+BASE = DATA_BASE
 
 
 def find_latest_v1_dir(wait_seconds=30, attempts=3):

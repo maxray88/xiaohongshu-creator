@@ -9,8 +9,9 @@ import os, sys, time
 
 from theme_rotation import parse_day_dir
 from cdp_publish import CDPError
+from xhs_config import DATA_BASE
 
-BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
+BASE = DATA_BASE
 
 # 页面上的保存指示文案。两侧 draft 脚本共用一份，避免日后分叉。
 #

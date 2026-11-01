@@ -136,7 +136,7 @@ def test_render_failure_leaves_no_partial_jpg(tmp_path):
     assert rc == 1
     # navigated 含一次 about:blank 初始化，故是 7
     assert fake.navigated == 7, "六张卡都应尝试渲染（+1 次 about:blank 初始化）"
-    assert fake.shots == 6, "六次截图尝试"
+    assert fake.shots == 18, "六卡 × 每次 3 次尝试"
     assert jpgs == [], f"失败渲染留下了残留：{jpgs}"
     m = json.load(open(mf))
     assert m["images_rendered"] is False

@@ -16,9 +16,15 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 # CDP 模块已 vendored 到项目内 vendor/xhs/（2026-09-27，原 ~/.hermes/xhs_skills/scripts）
 add_cdp_to_path()
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
-from xhs_config import CDP_HOST, CDP_PORT, PUBLISH_URL, STATISTICS_URL  # noqa: E402
+from xhs_config import (
+    CDP_HOST,
+    CDP_PORT,
+    DATA_BASE,
+    PUBLISH_URL,
+    STATISTICS_URL,
+)  # noqa: E402
 
-BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
+BASE = DATA_BASE
 DB_PATH = os.path.join(BASE, "performance_history.json")
 PUBLISHED_PATH = os.path.join(BASE, "published_content.json")
 

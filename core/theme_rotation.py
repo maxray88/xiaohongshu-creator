@@ -17,6 +17,8 @@ import json
 import os
 import re
 
+from xhs_config import DATA_BASE
+
 # 目录名规范：day_YYYYMMDD_dayN（V2 另有 day_YYYYMMDD_dayN_v2）
 DAY_DIR_RE = re.compile(r"^day_(\d{8})_day(\d+)(_v2)?$")
 
@@ -32,6 +34,27 @@ def parse_day_dir(name: str):
     if not m:
         return None
     return m.group(1), int(m.group(2)), bool(m.group(3))
+
+
+def pick_today_v1(day_names, today_c: str) -> str | None:
+    """Return the today-matching V1 dir with the largest numeric dayN.
+
+    Single home for "which day dir is today's" (P1 #35): string sorting
+    picks day9 over day10 on rerun days. _v2 dirs never match (a V1 rerun
+    is the generation output; _v2 is derived). Malformed names ignored.
+    """
+    best = None
+    best_n = -1
+    for name in day_names:
+        p = parse_day_dir(name or "")
+        if not p or p[2]:
+            continue
+        date_c, day_num = p[0], p[1]
+        if date_c != today_c:
+            continue
+        if day_num > best_n:
+            best, best_n = name, day_num
+    return best
 
 
 def manifest_color_scheme(day_dir, want_v2: bool):
@@ -131,7 +154,7 @@ def main_cli(today_date: str) -> int:
     输出最近 3 天的 V1/V2 主题集合。day77 事故：LLM 称 day76=苔藓/莓果，
     实际磁盘 day76_v2=晨雾薄荷，致 V1 误选玫瑰暮云撞 day74_v2。
     """
-    base = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treehole")
+    base = DATA_BASE
     last_v1, last_v2 = recent_schemes(base, today_date, n=3)
     print(f"最近3天V1: {sorted(last_v1)}")
     print(f"最近3天V2: {sorted(last_v2)}")

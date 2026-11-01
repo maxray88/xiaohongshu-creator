@@ -12,7 +12,13 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 add_cdp_to_path()
 from cdp_publish import CDPError, SELECTORS
 from tab_lifecycle import ManagedPublisher  # 关掉自己新建的标签页（M3）
-from xhs_config import CDP_HOST, CDP_PORT, CREATOR_HOST_FRAGMENT, PUBLISH_URL  # noqa: E402
+from xhs_config import (
+    CDP_HOST,
+    CDP_PORT,
+    CREATOR_HOST_FRAGMENT,
+    DATA_BASE,
+    PUBLISH_URL,
+)  # noqa: E402
 from publish_guard import require_publishable
 from draft_shared import (
     # SAVE_MARKERS 系 re-export：保持 vd.SAVE_MARKERS 对外可用（pyflakes F401 属预期内）
@@ -24,7 +30,7 @@ __all__ = ["SAVE_MARKERS", "save_confirmed_in", "get_draft_count",
            "find_latest_dir", "navigate_publish_page",
            "find_latest_v2_dir"]
 
-BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
+BASE = DATA_BASE
 
 
 def find_latest_v2_dir(wait_seconds=30, attempts=3):

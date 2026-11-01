@@ -181,3 +181,18 @@ def test_recent_schemes_bad_date_returns_empty(tmp_path):
 def test_recent_schemes_missing_dir_returns_empty(tmp_path):
     v1, v2 = recent_schemes(str(tmp_path / "nope"), date.today().strftime("%Y%m%d"))
     assert v1 == set() and v2 == set()
+
+
+def test_pick_today_v1_numeric_max():
+    from theme_rotation import pick_today_v1
+
+    assert pick_today_v1(
+        ["day_20260101_day9", "day_20260101_day10", "day_20260101_day10_v2"],
+        "20260101",
+    ) == "day_20260101_day10"
+
+
+def test_pick_today_v1_none_without_today():
+    from theme_rotation import pick_today_v1
+
+    assert pick_today_v1(["day_20251231_day1", "notes"], "20260101") is None

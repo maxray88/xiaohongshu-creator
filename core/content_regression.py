@@ -21,9 +21,9 @@ from theme_rotation import parse_day_dir
 from manifest_title import manifest_title, plain_title, plain_series
 from content_checks import has_emoji as _has_emoji
 from content_checks import load_json_tolerant
-from xhs_config import TITLE_MAX
+from xhs_config import DATA_BASE, TITLE_MAX
 
-BASE = Path.home() / ".hermes/data/xhs_treehole"
+BASE = Path(DATA_BASE)
 
 
 def _parse_hour(s: str) -> int | None:

@@ -12,7 +12,10 @@ import os, shutil, sys
 from pathlib import Path
 from datetime import datetime, timedelta
 
-TARGET = os.path.expanduser("~/.hermes/data/xhs_treehole")
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core"))
+from xhs_config import DATA_BASE
+
+TARGET = DATA_BASE
 NOW = datetime.now()
 # cutoff 取「7 天前的当天零点」，不是 NOW-7d。
 # NOW-7d 带着当前时分秒：05:30 跑时，7 天前零点比 cutoff 老 5.5 小时，

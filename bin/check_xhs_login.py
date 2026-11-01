@@ -11,6 +11,12 @@
 配合 hermes no_agent cron：
   - 登录有效 → 无 stdout、exit 0 → 静默
   - 失效或探针异常 → 输出 ❌ 报告、exit 1 → feishu 告警
+
+A same-origin challenge page served under a /publish path without any
+block-marker token would pass this URL-only probe (fail-open by design —
+content inspection is out of scope for this lightweight probe). If such a
+case is ever observed in production, add a secondary signal (known publish
+DOM element or session-cookie presence check).
 """
 
 import io
@@ -26,7 +32,7 @@ from xhs_paths import add_cdp_to_path  # noqa: E402
 # CDP 模块已 vendored 到项目内 vendor/xhs/（2026-09-27，原 ~/.hermes/xhs_skills/scripts）
 add_cdp_to_path()
 
-from xhs_config import PUBLISH_URL  # noqa: E402
+from xhs_config import CDP_HOST, CDP_PORT, PUBLISH_URL  # noqa: E402
 
 
 def main() -> int:
@@ -45,15 +51,15 @@ def main() -> int:
     started_here = False
     try:
         from chrome_launcher import is_port_open
-        if not is_port_open(9222):
+        if not is_port_open(CDP_PORT):
             started_here = True
-        if not ensure_chrome(port=9222, headless=True):
+        if not ensure_chrome(port=CDP_PORT, headless=True):
             print("❌ XHS 登录探针：Chrome 启动失败")
             print("=" * 46)
-            print("• [探针] Chrome CDP 9222 不可用——请检查 Chrome 安装与 profile")
+            print(f"• [探针] Chrome CDP {CDP_PORT} 不可用——请检查 Chrome 安装与 profile")
             return 1
 
-        pub = ManagedPublisher(host="127.0.0.1", port=9222, timing_jitter=0.25)
+        pub = ManagedPublisher(host=CDP_HOST, port=CDP_PORT, timing_jitter=0.25)
         # CDP 库自带连接日志；探针通过时必须保持无 stdout（静默约定），
         # 因此缓冲其输出，只在失败时输出我们自己的报告。
         buf = io.StringIO()
@@ -133,7 +139,7 @@ def main() -> int:
     finally:
         if started_here:
             try:
-                kill_chrome(port=9222)
+                kill_chrome(port=CDP_PORT)
             except Exception:
                 pass
 

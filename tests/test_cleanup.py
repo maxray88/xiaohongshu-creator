@@ -28,9 +28,12 @@ def _run_in(target_dir, runner_dir=None):
     所以默认放在 target_dir 的父目录。
     """
     src = open(SCRIPT, encoding="utf-8").read()
-    needle = 'TARGET = os.path.expanduser("~/.hermes/data/xhs_treehole")'
+    needle = "TARGET = DATA_BASE"
     assert needle in src, "脚本里找不到 TARGET 定义，测试需同步"
     src = src.replace(needle, f"TARGET = {target_dir!r}")
+    # 沙盒拷贝没有 core/ 可 import：TARGET 已被上面替换为沙盒字面量，
+    # 该 import 在拷贝里已无用，去掉（仅改拷贝，不改仓库源文件）。
+    src = src.replace("from xhs_config import DATA_BASE", "")
     base = runner_dir or os.path.dirname(os.path.abspath(target_dir.rstrip("/")))
     os.makedirs(base, exist_ok=True)
     runner = os.path.join(base, "_cleanup_under_test.py")
@@ -93,8 +96,10 @@ def test_exit_nonzero_on_delete_failure(tmp_path):
     _mk_day(d, 10)
     # 用一个 wrapper 注入 rmtree 失败
     src = open(SCRIPT, encoding="utf-8").read()
-    needle = 'TARGET = os.path.expanduser("~/.hermes/data/xhs_treehole")'
+    needle = "TARGET = DATA_BASE"
+    assert needle in src, "脚本里找不到 TARGET 定义，测试需同步"
     src = src.replace(needle, f"TARGET = {d!r}")
+    src = src.replace("from xhs_config import DATA_BASE", "")
     src = src.replace(
         "import os, shutil, sys",
         "import os, shutil, sys\n"

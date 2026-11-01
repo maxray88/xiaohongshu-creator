@@ -15,6 +15,7 @@ import json, os, re, subprocess, sys, time
 
 from ffmpeg_build import build_segments, cleanup, concat_segments, generate_tts
 from tts_slicing import get_card_texts
+from xhs_config import DATA_BASE
 
 # ── 向后兼容 re-export（tests/test_tts_slicing.py 仍从此模块取）──
 from tts_slicing import clean_tts_text, _truncate_tts
@@ -27,7 +28,7 @@ __all__ = ["clean_tts_text", "_truncate_tts", "get_audio_duration", "_valid_mp4"
            "QWEN_TTS_MODEL", "QWEN_TTS_INSTRUCT", "QWEN_TTS_SPEED", "QWEN_TTS_LANG"]
 
 
-BASE = os.path.expanduser("~/.hermes/data/xhs_treehole")
+BASE = DATA_BASE
 
 
 def find_latest_day():
