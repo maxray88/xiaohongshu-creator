@@ -289,3 +289,42 @@ def test_pool_mid_batch_failure_keeps_first_marked(isolated, tmp_path, monkeypat
     assert pool[0].get("used") is True and pool[0].get("posted_at")
     assert pool[1].get("used") is not True
     assert "posted_at" not in pool[1]
+
+
+def _write_job(path, obj=None, raw=None):
+    if raw is not None:
+        path.write_text(raw, encoding="utf-8")
+    else:
+        path.write_text(json.dumps(obj, ensure_ascii=False), encoding="utf-8")
+    return str(path)
+
+
+def test_job_file_supplies_target(isolated, tmp_path, monkeypatch, capsys):
+    job_path = _write_job(tmp_path / "engagement_job.json",
+                           {"feed_id": "jobfeed", "xsec_token": "jobtoken"})
+    monkeypatch.setattr(seed, "JOB_PATH", job_path)
+    rc = seed.main([])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "engagement_job.json" in out
+    assert FakePublisher.constructed == []
+
+
+def test_job_file_unreadable_fails_loud(isolated, tmp_path, monkeypatch, capsys):
+    job_path = _write_job(tmp_path / "engagement_job.json", raw="{not json!!!")
+    monkeypatch.setattr(seed, "JOB_PATH", job_path)
+    rc = seed.main([])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "unreadable" in out.lower()
+    assert FakePublisher.constructed == []
+
+
+def test_cli_flags_override_job_file(isolated, tmp_path, monkeypatch):
+    job_path = _write_job(tmp_path / "engagement_job.json",
+                           {"feed_id": "feedAAA", "xsec_token": "tokenAAA"})
+    monkeypatch.setattr(seed, "JOB_PATH", job_path)
+    rc = seed.main(BASE_ARGS + ["--live"])
+    assert rc == 0
+    inst = FakePublisher.instances[-1]
+    assert inst.posted == [("feed123", "token123", PICKED)]

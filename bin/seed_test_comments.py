@@ -65,6 +65,10 @@ COUNTER_PATH = os.path.join(_DATA_DIR, "engagement_counter.json")
 DEFAULT_POOL_PATH = os.path.join(_DATA_DIR, "engagement_pool.json")
 LOG_PATH = os.path.join(_DATA_DIR, "engagement_log.jsonl")
 STOP_PATH = os.path.join(_DATA_DIR, "ENGAGEMENT_STOP")
+# Local-only cron target file (operator-created, chmod 600, NOT repo-tracked).
+# Secrets must not live in repo-tracked wrappers, so cron passes no flags and
+# this tool reads feed_id/xsec_token from here as a fallback. CLI flags win.
+JOB_PATH = os.path.join(_DATA_DIR, "engagement_job.json")
 TRYOUT_HARD_CAP_PER_DAY = 3
 
 
@@ -169,6 +173,34 @@ def _parse_args(argv=None) -> argparse.Namespace:
 
 def main(argv=None) -> int:
     args = _parse_args(argv)
+
+    # Cron fallback: bare zero-arg runs read the target from the local-only
+    # job file under DATA_DIR (operator-created, chmod 600). Secrets must
+    # not live in repo-tracked wrappers, so the job file supplies ONLY
+    # feed_id + xsec_token; --max-comments/--persona stay CLI-only (their
+    # argparse defaults are indistinguishable from explicit flags).
+    # CLI flags win over the job file. Runs before Gate 1 so usage errors
+    # still report correctly.
+    job_cfg = {}
+    if (not args.feed_id or not args.xsec_token) and os.path.isfile(JOB_PATH):
+        try:
+            with open(JOB_PATH, encoding="utf-8") as f:
+                job_cfg = json.load(f)
+        except (OSError, ValueError) as e:
+            print(f"❌ engagement_job.json unreadable: {e}")
+            return 1
+        if not isinstance(job_cfg, dict):
+            print("❌ engagement_job.json must be a JSON object")
+            return 1
+        from_job = False
+        if not args.feed_id and job_cfg.get("feed_id"):
+            args.feed_id = job_cfg.get("feed_id")
+            from_job = True
+        if not args.xsec_token and job_cfg.get("xsec_token"):
+            args.xsec_token = job_cfg.get("xsec_token")
+            from_job = True
+        if from_job:
+            print("• [seed] target from engagement_job.json")
 
     # Gate 1: port allowlist (checked first — main-account protection).
     if args.port != TEST_ONLY_CDP_PORT or args.port in BLOCKED_CDP_PORTS:
