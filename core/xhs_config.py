@@ -22,6 +22,7 @@ STATISTICS_URL = "https://creator.xiaohongshu.com/statistics/data-analysis"
 TITLE_MAX = 18          # 小红书标题上限 20，留 2 字余量
 CONTENT_MIN = 400
 CONTENT_MAX = 900
+QUALITY_SCORE_THRESHOLD = 7.0   # 5 维 LLM 评分通过线（与设计稿 COMMENT_THRESHOLD_SCORE 同值）
 
 
 # ─── 数据目录 ──────────────────────────────────────
@@ -33,3 +34,27 @@ DATA_BASE = os.path.join(os.path.expanduser("~"), ".hermes", "data", "xhs_treeho
 # ─── ComfyUI ───────────────────────────────────────
 COMFYUI_HOST = "127.0.0.1"
 COMFYUI_PORT = 8188
+
+# ─── Engagement（评论区运营节拍，分钟；like/save 等待为秒） ─────────
+ENGAGEMENT_DELAYS = {
+    "creator_prompt_min": 0, "creator_prompt_max": 5,
+    "commenter_a_min": 10, "commenter_a_max": 20,
+    "creator_reply_min": 15, "creator_reply_max": 30,
+    "commenter_b_min": 30, "commenter_b_max": 50,
+    "commenter_c_min": 60, "commenter_c_max": 90,
+}
+LIKE_SAVE_WAIT_MIN_SEC = 60
+LIKE_SAVE_WAIT_MAX_SEC = 180
+REPLY_MAX_PER_THREAD = 2
+REPLY_DELAY_MIN_MIN = 15
+REPLY_DELAY_MAX_MIN = 60
+HOSTILE_STOP_HOURS = 48
+
+# ─── 内容日历 ──────────────────────────────────────────
+CALENDAR_MIN_POSTS = 10
+CALENDAR_MAX_POSTS = 14
+CALENDAR_AUTO_APPROVE_HOURS = 2
+
+
+# ─── Cookie 会话 ─────────────────────────────────────────
+COOKIE_EXPIRY_WARNING_HOURS = 6

@@ -10,7 +10,7 @@ import json
 import os
 
 
-def atomic_write_json(path: str, data: dict) -> None:
+def atomic_write_json(path: str, data: dict | list) -> None:
     """tmp + fsync + rename 原子写。"""
     tmp = f"{path}.tmp.{os.getpid()}"
     with open(tmp, "w", encoding="utf-8") as f:
