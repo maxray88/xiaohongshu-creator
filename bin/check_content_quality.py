@@ -5,9 +5,9 @@
 合规门，这个是事前门——同样的问题早 4 小时告警，避免浪费一次 Chrome 渲染、
 一次视频合成与两份问题草稿。
 
-评分模型借鉴 xhs-content-pipeline 设计的 5 维百分制思路，但全部用本地启发式
-实现（零 LLM 开销，不碰 weekly quota）：
-  8 个维度各 0/1，通过率 × 10 为总分，≥7.0 通过。
+硬门模型：全部检查项逐项判定，任一失败即拦截（exit 1）——不再按通过率
+打分放行，单个红线（如 398 字正文）也必须拦下。分数仍打印在报告头，仅供诊断。
+（本地启发式实现，零 LLM 开销，不碰 weekly quota。）
 
 配合 hermes no_agent cron：
   - 通过 → 无 stdout、exit 0 → 静默
@@ -34,8 +34,6 @@ from xhs_config import DATA_BASE, TITLE_MAX
 from io_utils import atomic_write_json
 
 BASE = DATA_BASE
-
-QUALITY_THRESHOLD = 7.0
 
 PROJ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 
@@ -84,6 +82,14 @@ def _tts_slices_ok(v1_dir, manifest_v2):
     if texts[4].strip() == texts[5].strip():
         return False, "method(4) 与 gentle(5) 文案重复"
     return True, "6 卡就绪且互不重复"
+
+
+def _failed(checks: list) -> list:
+    """Names of all failing checks. The gate is HARD: any single failure
+    blocks the pipeline (unlike the old score-threshold rule that let a
+    lone red-line violation through with exit 0 — day105 398-char body
+    passed 02:15 but failed the 06:00 watchdog on the same bytes)."""
+    return [name for name, ok, _ in checks if not ok]
 
 
 def main() -> int:
@@ -231,14 +237,12 @@ def main() -> int:
     else:
         check("TTS 六卡就绪", False, "无 V2 manifest，无法切片")
 
-    # 完整性是硬门：V1/V2 素材缺失时直接拦截（不走评分），缺什么一目了然。
-    missing = [name for name, ok, detail in checks
-               if name in ("V1 素材完整", "V2 素材完整") and not ok]
+    failed = _failed(checks)
     passed = sum(1 for _, ok, _ in checks if ok)
     score = round(passed / len(checks) * 10, 1) if checks else 0.0
-    if not missing and score >= QUALITY_THRESHOLD:
+    if not failed:
         return 0
-    print(f"❌ XHS 内容质量门：{today_v1} 评分 {score}/10（阈值 {QUALITY_THRESHOLD}）")
+    print(f"❌ XHS 内容质量门：{today_v1} 评分 {score}/10（分数仅供诊断，任一红线即拦截）")
     print("=" * 46)
     for name, ok, detail in checks:
         mark = "✓" if ok else "✗"

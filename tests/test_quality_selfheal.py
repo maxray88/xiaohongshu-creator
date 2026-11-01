@@ -164,3 +164,57 @@ def test_pick_today_v1_none_and_malformed():
         ["day_20251231_day1", "day_bogus", "day_2026010_day5", "notes"],
         "20260101",
     ) is None
+
+
+# ── 硬门：任一失败即拦截（day105 回归） ──────────────────────────
+
+def test_failed_helper_lists_failures_only():
+    checks = [("a", True, ""), ("b", False, "detail"), ("c", False, ""),
+              ("d", True, "x")]
+    assert cq._failed(checks) == ["b", "c"]
+
+
+def test_single_red_line_fails_gate(monkeypatch, tmp_path, capsys):
+    """day105 回归：398 字正文（<400 红线）在旧评分制下能以高分混过
+    02:15（exit 0），硬门下必须 exit 1 且报告点名长度项。
+
+    红线隔离：正文恰好 398 字（<400 唯一红线），其余检查全绿——
+    5 段式（空行分隔）、含？、首行含 etag「反PUA」、
+    标题/标签/manifest/系列/主题/TTS 切片沿用 _mkday 默认装配。
+    注：spec 写的是 body = "正文。" * 199，但那是 597 字（3×199），
+    反而落在 400–900 区间内、长度项会通过。这里是真正的红线用例。"""
+    base = str(tmp_path)
+    v1, _, _ = _mkday(base, "20260101")
+    pd_path = os.path.join(v1, "post_data.json")
+    pd = json.load(open(pd_path, encoding="utf-8"))
+    paras = [
+        "反PUA第一课：你并没有做错什么，你只是太久没有被好好对待了，对吗？"
+        "你把他的冷漠都归咎于自己不够好，可明明你已经做到了满分还要继续加试，"
+        "请别再苛责自己了好吗？",
+        "上周深夜你加班到十一点，拖着疲惫的身子回到家，他只回了一句多喝热水，"
+        "你盯着屏幕看了很久很久，眼泪差点掉进泡面碗里，却还是回了一句没事，"
+        "其实你多想被抱抱啊。",
+        "心理学上这不是你的错，而是煤气灯操控在起作用，你的感受一直都是真的，"
+        "他先否定你的情绪再扮演拯救者，这套路不是爱而是控制，你要看清楚，"
+        "别再自我怀疑了好吗。",
+        "下次当你又开始自责时，试着把这句话写下来贴在床头，每天读一遍提醒自己，"
+        "你值得被认真对待，从今天起把他的评价放在一边，先听听你自己的声音吧，"
+        "好吗？",
+        "今晚早点睡吧，愿你梦里全是偏爱，明早醒来记得先抱抱自己再出门，"
+        "天冷了记得加衣，情绪树洞会一直陪着每一个深夜emo却依然用力的你，"
+        "晚安好梦，愿明天的你更勇敢，自信又闪闪发光！",
+    ]
+    body = "\n\n".join(paras)
+    assert len(body) == 398, f"用例漂移：正文 {len(body)} 字，不再是 398 字红线"
+    assert len(paras) >= 5
+    assert "？" in body
+    assert "反PUA" in body.splitlines()[0]
+    pd["content_text"] = body
+    json.dump(pd, open(pd_path, "w", encoding="utf-8"), ensure_ascii=False)
+    _patch_base(monkeypatch, base)
+    rc = cq.main()
+    out = capsys.readouterr().out
+    assert rc == 1
+    failing = [ln for ln in out.splitlines() if "[✗]" in ln]
+    assert len(failing) == 1, f"红线未隔离，同时失败：{failing}"
+    assert "400" in failing[0], f"唯一失败项不是长度项：{failing}"
