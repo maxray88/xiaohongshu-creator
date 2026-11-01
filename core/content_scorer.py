@@ -12,6 +12,7 @@ import os
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from llm_client import call_llm
 from xhs_config import QUALITY_SCORE_THRESHOLD
 
 logger = logging.getLogger(__name__)
@@ -51,40 +52,33 @@ def _build_scoring_prompt(
     body: str,
     hashtags: list,
     series_or_niche: str,
+    short_form: bool = False,
 ) -> str:
     body_text = (body or "")[:2000]
-    return (
+    base = (
         f"Niche: {series_or_niche}\n"
         f"Title: {title}\n"
         f"Content:\n{body_text}\n"
         f"Hashtags: {hashtags}\n\n"
+    )
+    if short_form:
+        base += (
+            "The content above is a SHORT social media comment (1-2 sentences). "
+            "Score it for what it is: warmth, naturalness, and engagement power "
+            "in compact form. Do NOT penalize brevity \u2014 a perfect short "
+            "comment scores 9-10.\n\n"
+        )
+    base += (
         f'Return JSON: {{"relevance": <float>, "naturalness": <float>, '
         f'"persona_consistency": <float>, "platform_fit": <float>, '
         f'"engagement_potential": <float>}}'
     )
+    return base
 
 
 def _call_llm(system_prompt: str, user_prompt: str) -> str:
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=os.environ.get("LLM_API_KEY", ""),
-            base_url=os.environ.get("LLM_API_URL", ""),
-        )
-        # 02:15 集成会显式传 llm_caller；这里是仅用于直接调用的兜底默认。
-        response = client.chat.completions.create(
-            model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.3,
-        )
-        return response.choices[0].message.content or "{}"
-    except Exception:
-        logger.error("LLM call failed", exc_info=True)
-        return "{}"
+    # 02:15 集成会显式传 llm_caller；这里是仅用于直接调用的兜底默认。
+    return call_llm(system_prompt, user_prompt, temperature=0.3) or "{}"
 
 
 def score_content(
@@ -93,13 +87,14 @@ def score_content(
     hashtags: list,
     series: str,
     llm_caller: Callable[[str, str], str] | None = None,
+    short_form: bool = False,
 ) -> QualityScore:
     if not (body or "").strip() and not (title or "").strip():
         return QualityScore(0, 0, 0, 0, 0)
 
     title = title or ""
     hashtags = hashtags or []
-    prompt = _build_scoring_prompt(title, body, hashtags, series)
+    prompt = _build_scoring_prompt(title, body, hashtags, series, short_form=short_form)
 
     if llm_caller is not None:
         raw = llm_caller(SCORING_SYSTEM_PROMPT, prompt)

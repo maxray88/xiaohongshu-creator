@@ -14,6 +14,7 @@ from collections.abc import Callable
 from typing import Any
 
 from io_utils import atomic_write_json
+from llm_client import call_llm
 from xhs_config import (
     CALENDAR_AUTO_APPROVE_HOURS,
     CALENDAR_MAX_POSTS,
@@ -78,25 +79,7 @@ def _build_calendar_prompt(
 
 
 def _call_llm(prompt: str) -> str:
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=os.environ.get("LLM_API_KEY", ""),
-            base_url=os.environ.get("LLM_API_URL", ""),
-        )
-        response = client.chat.completions.create(
-            model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": CALENDAR_SYSTEM_PROMPT},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.8,
-        )
-        return response.choices[0].message.content or "[]"
-    except Exception:
-        logger.error("LLM call failed", exc_info=True)
-        return "[]"
+    return call_llm(CALENDAR_SYSTEM_PROMPT, prompt, temperature=0.8) or "[]"
 
 
 def _parse_calendar_response(raw: str) -> list[dict[str, Any]]:

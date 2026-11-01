@@ -168,3 +168,124 @@ def test_live_happy_path_records_counter(isolated):
 def test_jitter_bounds():
     for _ in range(200):
         assert 600.0 <= seed.apply_jitter(10) <= 900.0
+
+
+def _write_pool(tmp_path, entries):
+    pool_path = tmp_path / "engagement_pool.json"
+    pool_path.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
+    return str(pool_path)
+
+
+def _boom_llm(*args, **kwargs):
+    raise AssertionError("LLM must not be called in pool mode")
+
+
+def test_pool_mode_posts_without_llm(isolated, tmp_path, monkeypatch):
+    pool_path = _write_pool(tmp_path, [{"text": "人工审核过的暖心评论"}])
+    monkeypatch.setattr(seed, "generate_comment_candidates", _boom_llm)
+    monkeypatch.setattr(seed, "score_comment", _boom_llm)
+    monkeypatch.setattr(seed, "select_best_comment", _boom_llm)
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path])
+    assert rc == 0
+    inst = FakePublisher.instances[-1]
+    assert inst.posted == [("feed123", "token123", "人工审核过的暖心评论")]
+    data = json.loads(open(pool_path, encoding="utf-8").read())
+    assert data[0].get("used") is True
+    assert data[0].get("posted_at")
+    with open(seed.LOG_PATH, encoding="utf-8") as f:
+        lines = [json.loads(line) for line in f if line.strip()]
+    assert lines and all(entry["dry_run"] is False for entry in lines)
+
+
+def test_pool_exhausted_fails_loud(isolated, tmp_path, capsys):
+    pool_path = _write_pool(tmp_path, [{"text": "used one", "used": True}])
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "exhausted" in out.lower()
+    assert FakePublisher.constructed == []
+
+
+def test_pool_dry_run_marks_nothing(isolated, tmp_path, monkeypatch):
+    pool_path = _write_pool(tmp_path, [{"text": "dry-run pool text"}])
+    monkeypatch.setattr(seed, "generate_comment_candidates", _boom_llm)
+    monkeypatch.setattr(seed, "score_comment", _boom_llm)
+    monkeypatch.setattr(seed, "select_best_comment", _boom_llm)
+    rc = seed.main(BASE_ARGS + ["--pool", pool_path])
+    assert rc == 0
+    data = json.loads(open(pool_path, encoding="utf-8").read())
+    assert data[0].get("used") is not True
+    assert "posted_at" not in data[0]
+    assert FakePublisher.constructed == []
+    with open(seed.LOG_PATH, encoding="utf-8") as f:
+        lines = [json.loads(line) for line in f if line.strip()]
+    assert lines and all(entry["dry_run"] is True for entry in lines)
+
+
+def test_pool_malformed_entry_skipped(isolated, tmp_path):
+    pool_path = _write_pool(tmp_path, [{"nonsense": 1}, {"text": ""}, {"text": "ok"}])
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path])
+    assert rc == 0
+    inst = FakePublisher.instances[-1]
+    assert inst.posted == [("feed123", "token123", "ok")]
+
+
+def test_pool_multi_entry_max_comments(isolated, tmp_path):
+    pool_path = _write_pool(tmp_path, [{"text": "c1"}, {"text": "c2"}, {"text": "c3"}])
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path, "--max-comments", "3"])
+    assert rc == 0
+    inst = FakePublisher.instances[-1]
+    assert inst.posted == [
+        ("feed123", "token123", "c1"),
+        ("feed123", "token123", "c2"),
+        ("feed123", "token123", "c3"),
+    ]
+    with open(seed.COUNTER_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    assert data[seed._today_key()] == 3
+    pool = json.loads(open(pool_path, encoding="utf-8").read())
+    assert all(e.get("used") is True and e.get("posted_at") for e in pool)
+
+
+def test_pool_partial_cap_posts_remainder(isolated, tmp_path):
+    pool_path = _write_pool(tmp_path, [{"text": "c1"}, {"text": "c2"}, {"text": "c3"}])
+    with open(seed.COUNTER_PATH, "w", encoding="utf-8") as f:
+        json.dump({seed._today_key(): 1}, f)
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path, "--max-comments", "3"])
+    assert rc == 0
+    inst = FakePublisher.instances[-1]
+    assert inst.posted == [
+        ("feed123", "token123", "c1"),
+        ("feed123", "token123", "c2"),
+    ]
+    with open(seed.COUNTER_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    assert data[seed._today_key()] == 3
+    pool = json.loads(open(pool_path, encoding="utf-8").read())
+    assert pool[0].get("used") is True and pool[0].get("posted_at")
+    assert pool[1].get("used") is True and pool[1].get("posted_at")
+    assert pool[2].get("used") is not True
+    assert "posted_at" not in pool[2]
+
+
+def test_pool_mid_batch_failure_keeps_first_marked(isolated, tmp_path, monkeypatch):
+    pool_path = _write_pool(tmp_path, [{"text": "c1"}, {"text": "c2"}])
+    orig = FakePublisher.post_comment_to_feed
+
+    def flaky(self, feed_id, xsec_token, content):
+        if len(self.posted) >= 1:
+            raise FakeCDPError("boom")
+        return orig(self, feed_id, xsec_token, content)
+
+    monkeypatch.setattr(FakePublisher, "post_comment_to_feed", flaky)
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path, "--max-comments", "2"])
+    assert rc == 1
+    inst = FakePublisher.instances[-1]
+    assert inst.posted == [("feed123", "token123", "c1")]
+    with open(seed.COUNTER_PATH, encoding="utf-8") as f:
+        data = json.load(f)
+    assert data[seed._today_key()] == 1
+    pool = json.loads(open(pool_path, encoding="utf-8").read())
+    assert pool[0].get("used") is True and pool[0].get("posted_at")
+    assert pool[1].get("used") is not True
+    assert "posted_at" not in pool[1]

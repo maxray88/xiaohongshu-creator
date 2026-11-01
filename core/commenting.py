@@ -5,13 +5,13 @@
 """
 import json
 import logging
-import os
 import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from content_scorer import QualityScore, score_content
+from llm_client import call_llm
 from xhs_config import (
     ENGAGEMENT_DELAYS,
     HOSTILE_STOP_HOURS,
@@ -50,25 +50,7 @@ def _build_comment_prompt(post_title: str, post_body: str, persona: str) -> str:
 
 
 def _call_llm(system_prompt: str, user_prompt: str) -> str:
-    try:
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=os.environ.get("LLM_API_KEY", ""),
-            base_url=os.environ.get("LLM_API_URL", ""),
-        )
-        response = client.chat.completions.create(
-            model=os.environ.get("LLM_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.9,
-        )
-        return response.choices[0].message.content or "[]"
-    except Exception:
-        logger.error("LLM call failed", exc_info=True)
-        return "[]"
+    return call_llm(system_prompt, user_prompt, temperature=0.9) or "[]"
 
 
 def generate_comment_candidates(
@@ -107,6 +89,7 @@ def score_comment(
         hashtags=[],
         series=series,
         llm_caller=llm_caller,
+        short_form=True,
     )
     return candidate
 

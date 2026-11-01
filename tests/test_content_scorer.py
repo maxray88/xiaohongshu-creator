@@ -83,3 +83,32 @@ def test_score_day_missing_post_data(tmp_path):
     score = S.score_day(str(tmp_path), llm_caller=recording_caller)
     assert score.average == 0.0
     assert calls == []
+
+
+def test_short_form_calibration_present():
+    short_prompt = S._build_scoring_prompt("t", "short", [], "s", short_form=True)
+    long_prompt = S._build_scoring_prompt("t", "short", [], "s", short_form=False)
+    assert "SHORT social media comment" in short_prompt
+    assert "SHORT social media comment" not in long_prompt
+
+
+def test_short_form_flag_plumbed():
+    import commenting as C
+
+    captured: list = []
+
+    def recording_caller(_system: str, user: str) -> str:
+        captured.append(user)
+        return json.dumps({key: 8.0 for key in (
+            "relevance", "naturalness", "persona_consistency",
+            "platform_fit", "engagement_potential",
+        )})
+
+    S.score_content("t", "short", [], "s", llm_caller=recording_caller)
+    assert captured and "SHORT" not in captured[-1]
+
+    captured.clear()
+    candidate = C.CommentCandidate("short and warm")
+    C.score_comment(candidate, "s", llm_caller=recording_caller)
+    assert captured and "SHORT" in captured[-1]
+    assert "Do NOT penalize brevity" in captured[-1]

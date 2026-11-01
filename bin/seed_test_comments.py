@@ -17,6 +17,14 @@ DRY RUNS STILL CALL THE LLM — even a dry run costs LLM quota. That is
 intended for try-out observability (verify the LLM path works end to
 end); dry runs only skip the CDP/browser side effects.
 
+Pool mode (--pool PATH): cron-safe path with zero LLM calls. Reads a JSON
+list of human-approved comments from PATH and posts the first unused
+entries (up to --max-comments, still bounded by TRYOUT_HARD_CAP_PER_DAY).
+Cron context has no LLM env, so scheduled runs must use --pool; the
+default (no --pool) LLM-generation path is kept for interactive dry-runs
+and try-out observability only. Pool entries are pre-approved by a human;
+scoring is bypassed by design.
+
 Exit codes: 0 ok (posted / planned); 1 safety refusal or CDP/LLM failure;
 2 usage error.
 """
@@ -54,6 +62,7 @@ TEST_ONLY_CDP_PORT = 9229
 BLOCKED_CDP_PORTS = (9222, 9224)
 TEST_ACCOUNT_SCOPE = "test_seed"
 COUNTER_PATH = os.path.join(_DATA_DIR, "engagement_counter.json")
+DEFAULT_POOL_PATH = os.path.join(_DATA_DIR, "engagement_pool.json")
 LOG_PATH = os.path.join(_DATA_DIR, "engagement_log.jsonl")
 STOP_PATH = os.path.join(_DATA_DIR, "ENGAGEMENT_STOP")
 TRYOUT_HARD_CAP_PER_DAY = 3
@@ -111,6 +120,20 @@ def _write_counter(count: int) -> None:
         os.replace(tmp, COUNTER_PATH)
 
 
+def _write_pool_file(pool_path: str, data: list) -> None:
+    # Same atomic-or-fallback pattern as _write_counter (duplicated by
+    # design; do not refactor _write_counter).
+    if atomic_write_json is not None:
+        atomic_write_json(pool_path, data)
+    else:  # plain write + fsync fallback
+        tmp = f"{pool_path}.tmp.{os.getpid()}"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, pool_path)
+
+
 def _append_log(entry: dict) -> None:
     parent = os.path.dirname(LOG_PATH)
     if parent:
@@ -129,6 +152,16 @@ def _parse_args(argv=None) -> argparse.Namespace:
     parser.add_argument("--persona", default="supportive peer follower")
     parser.add_argument("--port", type=int, default=TEST_ONLY_CDP_PORT)
     parser.add_argument("--max-comments", type=int, default=1)
+    parser.add_argument(
+        "--pool",
+        default=None,
+        metavar="PATH",
+        help=(
+            "pool mode: read human-approved comments from JSON list file at PATH "
+            "instead of generating via LLM (zero LLM calls). "
+            "Pool entries are pre-approved by a human; scoring is bypassed by design."
+        ),
+    )
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--with-reply", action="store_true")
     return parser.parse_args(argv)
@@ -167,36 +200,77 @@ def main(argv=None) -> int:
         print("❌ missing required --feed-id / --xsec-token.", file=sys.stderr)
         return 2
 
-    # NOTE: core.commenting names these params post_title/post_body.
-    # llm_caller=None uses the real _call_llm — live runs need the
-    # operator's LLM env, and dry runs cost quota too (intended).
-    try:
-        candidates = generate_comment_candidates(
-            post_title="",
-            post_body="(try-out seeding — body intentionally empty; comments are generic supportive notes, not post-specific claims)",
-            persona=args.persona,
-            llm_caller=None,
-        )
-    except Exception as e:
-        print("❌ XHS try-out seeding: LLM candidate generation failed.")
-        print("=" * 46)
-        print(f"• [seed] {e}")
-        return 1
+    # Candidate source: --pool (zero LLM) vs LLM generation path.
+    # Pool entries are pre-approved by a human; scoring is bypassed by design.
+    pool_data: list | None = None
+    pool_picks: list = []  # [(pool index, text)]
+    best = None
+    if args.pool is not None:
+        try:
+            with open(args.pool, encoding="utf-8") as f:
+                pool_data = json.load(f)
+        except FileNotFoundError:
+            print(f"❌ XHS try-out seeding: pool file not found: {args.pool}.")
+            print("=" * 46)
+            print(f"• [seed] expected a JSON list at {args.pool}.")
+            return 1
+        except (ValueError, OSError) as e:
+            print("❌ XHS try-out seeding: pool file unreadable.")
+            print("=" * 46)
+            print(f"• [seed] {e}")
+            return 1
+        if not isinstance(pool_data, list):
+            print("❌ XHS try-out seeding: pool file unreadable.")
+            print("=" * 46)
+            print(f"• [seed] expected a JSON list at {args.pool}.")
+            return 1
+        usable = []
+        for idx, entry in enumerate(pool_data):
+            if not isinstance(entry, dict):
+                continue
+            if entry.get("used") is True:
+                continue
+            text = entry.get("text")
+            if not isinstance(text, str) or not text.strip():
+                continue
+            usable.append((idx, text))
+        if not usable:
+            print("❌ XHS try-out seeding: pool exhausted — add approved comments.")
+            print("=" * 46)
+            print(f"• [seed] no unused entries in {args.pool}.")
+            return 1
+        pool_picks = usable[: max(0, allowed - used)]
+    else:
+        # NOTE: core.commenting names these params post_title/post_body.
+        # llm_caller=None uses the real _call_llm — live runs need the
+        # operator's LLM env, and dry runs cost quota too (intended).
+        try:
+            candidates = generate_comment_candidates(
+                post_title="",
+                post_body="(try-out seeding — body intentionally empty; comments are generic supportive notes, not post-specific claims)",
+                persona=args.persona,
+                llm_caller=None,
+            )
+        except Exception as e:
+            print("❌ XHS try-out seeding: LLM candidate generation failed.")
+            print("=" * 46)
+            print(f"• [seed] {e}")
+            return 1
 
-    try:
-        scored = [score_comment(c) for c in candidates]
-    except Exception as e:
-        print("❌ XHS try-out seeding: comment scoring failed.")
-        print("=" * 46)
-        print(f"• [seed] {e}")
-        return 1
+        try:
+            scored = [score_comment(c) for c in candidates]
+        except Exception as e:
+            print("❌ XHS try-out seeding: comment scoring failed.")
+            print("=" * 46)
+            print(f"• [seed] {e}")
+            return 1
 
-    best = select_best_comment(scored)
-    if best is None:
-        print("❌ XHS try-out seeding: no comment met the bar — nothing posted.")
-        print("=" * 46)
-        print(f"• quality threshold (QUALITY_SCORE_THRESHOLD): {QUALITY_SCORE_THRESHOLD}.")
-        return 1
+        best = select_best_comment(scored)
+        if best is None:
+            print("❌ XHS try-out seeding: no comment met the bar — nothing posted.")
+            print("=" * 46)
+            print(f"• quality threshold (QUALITY_SCORE_THRESHOLD): {QUALITY_SCORE_THRESHOLD}.")
+            return 1
 
     seq = EngagementSequence(post_id=args.feed_id, post_url="")
     timeline = seq.build_timeline(num_commenters=min(args.max_comments, 3))
@@ -208,6 +282,19 @@ def main(argv=None) -> int:
 
     if not args.live:
         # DRY RUN: no publisher instantiation at all — no CDP contact.
+        if pool_data is not None:
+            # Pool dry-run plans without marking entries used (log only).
+            for i, (pool_idx, text) in enumerate(pool_picks):
+                delay = planned[i].get("delay_min", 0) if i < len(planned) else 0
+                print(f"[DRY-RUN] would post (pool #{pool_idx}): {text!r} after ~{delay}min")
+                _append_log({
+                    "ts": datetime.now().isoformat(),
+                    "feed_id": args.feed_id,
+                    "content": text,
+                    "delay_min": delay,
+                    "dry_run": True,
+                })
+            return 0
         for action in planned:
             delay = action.get("delay_min", 0)
             print(f"[DRY-RUN] would post: {best.content!r} after ~{delay}min")
@@ -245,25 +332,51 @@ def main(argv=None) -> int:
             print("=" * 46)
             print(f"• [seed] {e}")
             return 1
-        for action in planned:
-            delay = action.get("delay_min", 0)
-            _sleep(apply_jitter(delay))
-            try:
-                pub.post_comment_to_feed(args.feed_id, args.xsec_token, best.content)
-            except CDPError as e:
-                print("❌ XHS try-out seeding: post_comment_to_feed failed — stopping.")
-                print("=" * 46)
-                print(f"• [seed] {e}")
-                return 1
-            posted += 1
-            _write_counter(posted)
-            _append_log({
-                "ts": datetime.now().isoformat(),
-                "feed_id": args.feed_id,
-                "content": best.content,
-                "delay_min": delay,
-                "dry_run": False,
-            })
+        if pool_data is not None:
+            for i, (pool_idx, text) in enumerate(pool_picks):
+                delay = planned[i].get("delay_min", 0) if i < len(planned) else 0
+                _sleep(apply_jitter(delay))
+                try:
+                    pub.post_comment_to_feed(args.feed_id, args.xsec_token, text)
+                except CDPError as e:
+                    print("❌ XHS try-out seeding: post_comment_to_feed failed — stopping.")
+                    print("=" * 46)
+                    print(f"• [seed] {e}")
+                    return 1
+                pool_data[pool_idx]["used"] = True
+                pool_data[pool_idx]["posted_at"] = datetime.now().isoformat()
+                _write_pool_file(args.pool, pool_data)
+                posted += 1
+                _write_counter(posted)
+                _append_log({
+                    "ts": datetime.now().isoformat(),
+                    "feed_id": args.feed_id,
+                    "content": text,
+                    "delay_min": delay,
+                    "dry_run": False,
+                })
+            reply_content = pool_picks[-1][1] if pool_picks else ""
+        else:
+            for action in planned:
+                delay = action.get("delay_min", 0)
+                _sleep(apply_jitter(delay))
+                try:
+                    pub.post_comment_to_feed(args.feed_id, args.xsec_token, best.content)
+                except CDPError as e:
+                    print("❌ XHS try-out seeding: post_comment_to_feed failed — stopping.")
+                    print("=" * 46)
+                    print(f"• [seed] {e}")
+                    return 1
+                posted += 1
+                _write_counter(posted)
+                _append_log({
+                    "ts": datetime.now().isoformat(),
+                    "feed_id": args.feed_id,
+                    "content": best.content,
+                    "delay_min": delay,
+                    "dry_run": False,
+                })
+            reply_content = best.content
         if args.with_reply:
             if not hasattr(pub, "respond_comment"):
                 print("❌ XHS try-out seeding: vendor respond_comment unavailable — REPORT, no DIY DOM.")
@@ -274,7 +387,7 @@ def main(argv=None) -> int:
             if replies:
                 _sleep(apply_jitter(replies[0].get("delay_min", 0)))
                 try:
-                    pub.respond_comment(args.feed_id, args.xsec_token, best.content)
+                    pub.respond_comment(args.feed_id, args.xsec_token, reply_content)
                 except CDPError as e:
                     print("❌ XHS try-out seeding: respond_comment failed.")
                     print("=" * 46)
@@ -283,7 +396,7 @@ def main(argv=None) -> int:
                 _append_log({
                     "ts": datetime.now().isoformat(),
                     "feed_id": args.feed_id,
-                    "content": best.content,
+                    "content": reply_content,
                     "delay_min": replies[0].get("delay_min", 0),
                     "dry_run": False,
                     "kind": "creator_reply",
