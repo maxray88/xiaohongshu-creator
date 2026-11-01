@@ -21,7 +21,15 @@ if ! require_python; then
   exit 1
 fi
 
-run_project_python bin/seed_test_comments.py --pool "$HOME/.hermes/data/xhs_treehole/engagement_pool.json" --live --max-comments 1 2>&1
+# LLM proxy env for pool auto-refill / candidate generation.
+# Loopback-only values, NOT secrets — safe to keep in repo. The local
+# proxy at 127.0.0.1:15721 injects real credentials; this file never holds them.
+# Proxy must be up for refill/generation; if down → loud fail.
+export LLM_API_URL="http://127.0.0.1:15721/v1"
+export LLM_API_KEY="PROXY_MANAGED"
+export LLM_MODEL="${LLM_MODEL:-muse-spark-1.3-contributor}"
+
+run_project_python bin/seed_test_comments.py --pool "$HOME/.hermes/data/xhs_treehole/engagement_pool.json" --live --max-comments 1 --auto-refill 2>&1
 EXIT_CODE=$?
 
 echo ""

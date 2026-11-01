@@ -197,8 +197,11 @@ def test_pool_mode_posts_without_llm(isolated, tmp_path, monkeypatch):
     assert lines and all(entry["dry_run"] is False for entry in lines)
 
 
-def test_pool_exhausted_fails_loud(isolated, tmp_path, capsys):
+def test_pool_exhausted_fails_loud(isolated, tmp_path, monkeypatch, capsys):
     pool_path = _write_pool(tmp_path, [{"text": "used one", "used": True}])
+    monkeypatch.setattr(seed, "generate_comment_candidates", _boom_llm)
+    monkeypatch.setattr(seed, "score_comment", _boom_llm)
+    monkeypatch.setattr(seed, "select_best_comment", _boom_llm)
     rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path])
     out = capsys.readouterr().out
     assert rc == 1
@@ -328,3 +331,85 @@ def test_cli_flags_override_job_file(isolated, tmp_path, monkeypatch):
     assert rc == 0
     inst = FakePublisher.instances[-1]
     assert inst.posted == [("feed123", "token123", PICKED)]
+
+
+def _autorefill_candidates():
+    return [
+        SimpleNamespace(content="auto good 1", score=None),
+        SimpleNamespace(content="auto good 2", score=None),
+        SimpleNamespace(content="auto bad", score=None),
+    ]
+
+
+def _autorefill_scorer(candidate, *args, **kwargs):
+    if "bad" in candidate.content:
+        candidate.score = SimpleNamespace(average=5.0)
+    else:
+        candidate.score = SimpleNamespace(average=8.0)
+    return candidate
+
+
+def test_autorefill_keeps_passing_scores(isolated, tmp_path, monkeypatch, capsys):
+    pool_path = _write_pool(tmp_path, [{"text": "used one", "used": True}])
+    monkeypatch.setattr(seed, "generate_comment_candidates", lambda **kwargs: _autorefill_candidates())
+    monkeypatch.setattr(seed, "score_comment", _autorefill_scorer)
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path, "--auto-refill"])
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "auto-refill kept 2/3" in out
+    pool = json.loads(open(pool_path, encoding="utf-8").read())
+    auto_entries = [e for e in pool if e.get("source") == "auto"]
+    assert len(auto_entries) == 2
+    by_text = {e.get("text"): e for e in auto_entries}
+    assert by_text["auto good 1"].get("used") is True and by_text["auto good 1"].get("posted_at")
+    assert by_text["auto good 2"].get("used") is not True
+    assert "posted_at" not in by_text["auto good 2"]
+    assert all("score" in e for e in auto_entries)
+    assert all(e["score"] >= seed.QUALITY_SCORE_THRESHOLD for e in auto_entries)
+    # 1 posted (max-comments default 1)
+    inst = FakePublisher.instances[-1]
+    assert len(inst.posted) == 1
+    assert inst.posted[0][2] == "auto good 1"
+    # used entry got marked after posting
+    pool_after = json.loads(open(pool_path, encoding="utf-8").read())
+    assert pool_after[1].get("used") is True
+
+
+def test_autorefill_none_pass_loud_fail(isolated, tmp_path, monkeypatch, capsys):
+    before = [{"text": "used one", "used": True}]
+    pool_path = _write_pool(tmp_path, before)
+    monkeypatch.setattr(
+        seed, "generate_comment_candidates",
+        lambda **kwargs: [SimpleNamespace(content="bad 1", score=None),
+                          SimpleNamespace(content="bad 2", score=None)],
+    )
+
+    def _low(candidate, *args, **kwargs):
+        candidate.score = SimpleNamespace(average=5.0)
+        return candidate
+
+    monkeypatch.setattr(seed, "score_comment", _low)
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path, "--auto-refill"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "none met the bar" in out.lower()
+    pool = json.loads(open(pool_path, encoding="utf-8").read())
+    assert pool == before
+    assert FakePublisher.constructed == []
+
+
+def test_autorefill_llm_down_loud_fail(isolated, tmp_path, monkeypatch, capsys):
+    before = [{"text": "used one", "used": True}]
+    pool_path = _write_pool(tmp_path, before)
+
+    def _boom(**kwargs):
+        raise RuntimeError("proxy down")
+
+    monkeypatch.setattr(seed, "generate_comment_candidates", _boom)
+    rc = seed.main(BASE_ARGS + ["--live", "--pool", pool_path, "--auto-refill"])
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "produced no candidates" in out.lower()
+    pool = json.loads(open(pool_path, encoding="utf-8").read())
+    assert pool == before
+    assert FakePublisher.constructed == []

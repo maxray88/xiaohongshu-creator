@@ -166,6 +166,16 @@ def _parse_args(argv=None) -> argparse.Namespace:
             "Pool entries are pre-approved by a human; scoring is bypassed by design."
         ),
     )
+    parser.add_argument(
+        "--auto-refill",
+        action="store_true",
+        default=False,
+        help=(
+            "when the usable pool is empty, generate candidates via LLM "
+            "and keep only those passing the quality bar; without this flag "
+            "an empty pool is a loud failure (Gate: pool exhausted)."
+        ),
+    )
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--with-reply", action="store_true")
     return parser.parse_args(argv)
@@ -267,10 +277,70 @@ def main(argv=None) -> int:
                 continue
             usable.append((idx, text))
         if not usable:
-            print("❌ XHS try-out seeding: pool exhausted — add approved comments.")
-            print("=" * 46)
-            print(f"• [seed] no unused entries in {args.pool}.")
-            return 1
+            if not args.auto_refill:
+                print("❌ XHS try-out seeding: pool exhausted — add approved comments.")
+                print("=" * 46)
+                print(f"• [seed] no unused entries in {args.pool}.")
+                return 1
+            # Auto-refill: LLM-generate, score, keep only passing ones.
+            try:
+                candidates = generate_comment_candidates(
+                    post_title="",
+                    post_body="(auto-refill seeding — generic supportive comment)",
+                    persona=args.persona,
+                    llm_caller=None,
+                )
+            except Exception as e:
+                print("❌ XHS try-out seeding: auto-refill produced no candidates.")
+                print("=" * 46)
+                print(f"• [seed] {e}")
+                return 1
+            if not candidates:
+                print("❌ XHS try-out seeding: auto-refill produced no candidates.")
+                print("=" * 46)
+                print(f"• [seed] no unused entries in {args.pool}; LLM returned nothing.")
+                return 1
+            total = len(candidates)
+            scored_ok = []
+            for c in candidates:
+                try:
+                    scored_ok.append(score_comment(c, series=""))
+                except Exception as e:
+                    print(f"• [seed] auto-refill scoring failed for a candidate ({e}), skipping.")
+                    continue
+            kept = [
+                c for c in scored_ok
+                if c.score is not None and c.score.average >= QUALITY_SCORE_THRESHOLD
+            ][:TRYOUT_HARD_CAP_PER_DAY]
+            if not kept:
+                print("❌ XHS try-out seeding: auto-refill: none met the bar.")
+                print("=" * 46)
+                print(f"• [seed] scored {len(scored_ok)}/{total}, none met the bar.")
+                return 1
+            for c in kept:
+                pool_data.append({
+                    "text": c.content,
+                    "used": False,
+                    "source": "auto",
+                    "score": round(c.score.average, 2),
+                })
+            _write_pool_file(args.pool, pool_data)
+            print(f"• [seed] auto-refill kept {len(kept)}/{total}.")
+            usable = []
+            for idx, entry in enumerate(pool_data):
+                if not isinstance(entry, dict):
+                    continue
+                if entry.get("used") is True:
+                    continue
+                text = entry.get("text")
+                if not isinstance(text, str) or not text.strip():
+                    continue
+                usable.append((idx, text))
+            if not usable:
+                print("❌ XHS try-out seeding: pool exhausted — add approved comments.")
+                print("=" * 46)
+                print(f"• [seed] no unused entries in {args.pool}.")
+                return 1
         pool_picks = usable[: max(0, allowed - used)]
     else:
         # NOTE: core.commenting names these params post_title/post_body.
