@@ -14,3 +14,5 @@ All cards share `design_tokens.json` canvas/spacing/typography. Export as `maste
 **Cover spec:** title ≤18 chars, emotion keyword in first line, safe margin 48px, high contrast (deep text on light bg or white on deep bg).
 
 **Export:** Open Design → Export HTML masters to `design/masters/` (kept in sync with generators).
+V3 (2026-11-03, taste-skill run, brief design/redesign_brief.md): 6 files above; sample copy from day_20261102_day106; live source in design/masters_v3/.
+V4 OD-polish (2026-11-03, Open Design run on xhs-treehole-v4, card-xiaohongshu recipe): refined crops/type, moon-lead gentle preserved; sample copy day_20261102_day106; live source design/masters_v4/ + OD project.

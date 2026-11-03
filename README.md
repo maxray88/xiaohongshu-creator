@@ -37,6 +37,7 @@
 │   └── masters/                   # 设计母版（仅 README）
 ├── workflows/    # 工作流定义
 │   └── comfy_xhs_card.json        # ComfyUI 卡片生成工作流
+├── tools/        # session-Bash wrapper，以干净终端-like 环境跑命令（给 `claude` CLI 用）
 ├── tests/        # 回归测试（python3 -m pytest tests/ -v，10 文件 1547 行）
 │   ├── test_tts_slicing.py        # TTS 六卡切片不变量 + day62 真实 fixture
 │   ├── test_theme_rotation.py     # 主题轮换规则单测

@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "caption-writer": {
+      "source": "social-media-skills/skills",
+      "sourceType": "github",
+      "skillPath": "skills/caption-writer/SKILL.md",
+      "computedHash": "456e1fb851a4714f5fae46f3dfab4f4a690aae3ae396b12f257a480da744137f"
+    },
+    "carousel-writer": {
+      "source": "social-media-skills/skills",
+      "sourceType": "github",
+      "skillPath": "skills/carousel-writer/SKILL.md",
+      "computedHash": "38c2cd05bc5d53d44e5b37370f5ecafea7f3a49125181c88991b643f9701c1a0"
+    },
+    "design-taste-frontend": {
+      "source": "Leonxlnx/taste-skill",
+      "sourceType": "github",
+      "skillPath": "skills/taste-skill/SKILL.md",
+      "computedHash": "6ac8ba6089dcbc303744a507a4587113c5d845ca2f658b3ce2b0b5eab108fb0d"
+    },
+    "hook-writer": {
+      "source": "social-media-skills/skills",
+      "sourceType": "github",
+      "skillPath": "skills/hook-writer/SKILL.md",
+      "computedHash": "cda0893e72ed7586ae2a6a0231e09076ca6d5aba532c1cdd8a1298b647f99f5a"
+    }
+  }
+}
