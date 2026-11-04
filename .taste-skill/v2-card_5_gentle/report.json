@@ -1,0 +1,391 @@
+{
+ "url": "design/masters_v2/card_v2_5_gentle.html",
+ "at": "2026-11-03T15:27:51.795Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1080,
+   "height": 675,
+   "load": "load",
+   "screens": 3,
+   "filled": [
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "page": {
+     "height": 1920,
+     "screens": 2.8,
+     "words": 10,
+     "img": 3,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 1,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "moon.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "深夜树洞 第107夜 说出来，就不用再重播 把那句翻来覆去的话，留在这里吧。 今晚好好睡一觉，明天又是从头开始的一天。 晚安，明天见。 情绪树洞 · 第107夜 信纸邮戳月色皆为档案实拍",
+     "words": 10,
+     "chars": 93,
+     "lines": 7,
+     "size": 20,
+     "vw": 1.9,
+     "font": "Noto Sans SC",
+     "weight": 400,
+     "tracking": 0,
+     "leading": 1.2,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 1,
+     "top": 0,
+     "tag": "div",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "说出来，就不用再重播",
+     "words": 1,
+     "lines": 1,
+     "size": 76,
+     "font": "Noto Sans SC"
+    },
+    "headings": [
+     {
+      "text": "说出来，就不用再重播",
+      "words": 1,
+      "chars": 10,
+      "lines": 1,
+      "size": 76,
+      "vw": 7,
+      "font": "Noto Sans SC",
+      "weight": 800,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 1042,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "把那句翻来覆去的话，留在这里吧。",
+      "words": 1,
+      "chars": 16,
+      "lines": 1,
+      "size": 28,
+      "vw": 2.6,
+      "font": "Noto Sans SC",
+      "weight": 500,
+      "tracking": 0,
+      "leading": 1.7,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 1157,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "今晚好好睡一觉，明天又是从头开始的一天。",
+      "words": 1,
+      "chars": 20,
+      "lines": 1,
+      "size": 28,
+      "vw": 2.6,
+      "font": "Noto Sans SC",
+      "weight": 500,
+      "tracking": 0,
+      "leading": 1.7,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 1221,
+      "tag": "p",
+      "kind": "statement"
+     }
+    ],
+    "headingSummary": {
+     "count": 3,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 3,
+     "medianWords": 1,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Noto Sans SC",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      18,
+      20,
+      28,
+      76
+     ],
+     "sizeCount": 4,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 76,
+      "vw": 7,
+      "font": "Noto Sans SC",
+      "text": "说出来，就不用再重播"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.61,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#431407",
+       "top": 0,
+       "hsl": {
+        "h": 13,
+        "s": 0.81,
+        "l": 0.15
+       }
+      },
+      {
+       "color": "#fff7ed",
+       "top": 150,
+       "hsl": {
+        "h": 33,
+        "s": 1,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#201a14",
+       "top": 266,
+       "hsl": {
+        "h": 30,
+        "s": 0.23,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#431407",
+       "share": 1
+      }
+     ],
+     "button": null,
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 0,
+     "inHero": 0,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": []
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 1,
+     "mediaRadius": 4,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.47
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "pageH": 1920,
+    "margins": {
+     "left": 100,
+     "right": 96
+    },
+    "sections": [
+     {
+      "sel": "div.well",
+      "tag": "div",
+      "top": 266,
+      "height": 744,
+      "words": 0,
+      "media": 1,
+      "middle": 0,
+      "heading": null,
+      "left": 108,
+      "right": 108,
+      "textLeft": null,
+      "textRight": null,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div",
+      "tag": "div",
+      "top": 1346,
+      "height": 131,
+      "words": 0,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 482,
+      "right": 482,
+      "textLeft": null,
+      "textRight": null,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "说出来，就不用再重播",
+      "size": 76,
+      "top": 1042,
+      "firstScreen": false
+     }
+    ],
+    "edgeText": [],
+    "edges": [],
+    "leftBlocks": 0,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.2,
+    "voidBox": {
+     "x": 0,
+     "y": 90,
+     "w": 810,
+     "h": 180
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "palette-cream",
+   "width": 1080,
+   "message": "Yellow-cream background (section #fff7ed).",
+   "fix": "Use the drawn palette. If you want warmth, take a low-chroma stone or bone, not a yellow cream."
+  },
+  {
+   "level": "WARN",
+   "id": "first-action",
+   "width": 1080,
+   "message": "No visible button in the first screen.",
+   "fix": "Give the one primary action a real button in the first screen (a filled or solid-bordered control, 44px or taller), not only a link in the navigation."
+  },
+  {
+   "level": "FAIL",
+   "id": "no-title",
+   "width": 1080,
+   "message": "The h1 (\"说出来，就不用再重播\") is not on the first screen (it starts 1042px down).",
+   "fix": "The title belongs on the first screen, where a visitor decides whether to stay."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "tablet",
+   "width": 1080,
+   "fold": "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/v2-card_5_gentle/tablet-fold.jpg",
+   "pages": [
+    "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/v2-card_5_gentle/tablet-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

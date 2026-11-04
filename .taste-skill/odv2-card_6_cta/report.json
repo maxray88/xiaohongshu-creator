@@ -1,0 +1,420 @@
+{
+ "url": "tmp/od_polished_v2/card_v2_6_cta.html",
+ "at": "2026-11-03T16:27:33.891Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1080,
+   "height": 675,
+   "load": "load",
+   "screens": 3,
+   "filled": [
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "page": {
+     "height": 1920,
+     "screens": 2.8,
+     "words": 10,
+     "img": 3,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 1,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "postcard-back.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "睡前不复盘三遍，不算过完今天",
+     "words": 1,
+     "chars": 14,
+     "lines": 2,
+     "size": 76,
+     "vw": 7,
+     "font": "Noto Sans SC",
+     "weight": 800,
+     "tracking": 0,
+     "leading": 1.3,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.82,
+     "top": 266,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "睡前不复盘三遍，不算过完今天",
+     "words": 1,
+     "lines": 2,
+     "size": 76,
+     "font": "Noto Sans SC"
+    },
+    "headings": [
+     {
+      "text": "睡前不复盘三遍，不算过完今天",
+      "words": 1,
+      "chars": 14,
+      "lines": 2,
+      "size": 76,
+      "vw": 7,
+      "font": "Noto Sans SC",
+      "weight": 800,
+      "tracking": 0,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 266,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "你也是这样的吗？你翻到顶的那条记录，是和谁的？点个收藏，今晚把手机放客厅。",
+      "words": 1,
+      "chars": 37,
+      "lines": 2,
+      "size": 28,
+      "vw": 2.6,
+      "font": "Noto Sans SC",
+      "weight": 500,
+      "tracking": 0,
+      "leading": 1.7,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 1072,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "评论区聊聊",
+      "words": 1,
+      "chars": 5,
+      "lines": 1,
+      "size": 34,
+      "vw": 3.1,
+      "font": "Noto Sans SC",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 1199,
+      "tag": "button",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 3,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 1,
+     "centered": 1,
+     "medianWords": 1,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Noto Sans SC",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      18,
+      20,
+      28,
+      34,
+      76
+     ],
+     "sizeCount": 5,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 76,
+      "vw": 7,
+      "font": "Noto Sans SC",
+      "text": "睡前不复盘三遍，不算过完今天"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.17,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#431407",
+       "top": 0,
+       "hsl": {
+        "h": 13,
+        "s": 0.81,
+        "l": 0.15
+       }
+      },
+      {
+       "color": "#fff7ed",
+       "top": 150,
+       "hsl": {
+        "h": 33,
+        "s": 1,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#201a14",
+       "top": 496,
+       "hsl": {
+        "h": 30,
+        "s": 0.23,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#431407",
+       "share": 0.95
+      },
+      {
+       "color": "#fff7ed",
+       "share": 0.05
+      }
+     ],
+     "button": null,
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 0,
+     "inHero": 0,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": []
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 3,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 1,
+     "mediaRadius": 4,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.2
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "pageH": 1920,
+    "margins": {
+     "left": 96,
+     "right": 96
+    },
+    "sections": [
+     {
+      "sel": "h1.cardtitle",
+      "tag": "h1",
+      "top": 266,
+      "height": 198,
+      "words": 0,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": null,
+      "right": null,
+      "textLeft": null,
+      "textRight": null,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.well",
+      "tag": "div",
+      "top": 496,
+      "height": 544,
+      "words": 0,
+      "media": 1,
+      "middle": 0,
+      "heading": null,
+      "left": 108,
+      "right": 108,
+      "textLeft": null,
+      "textRight": null,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div",
+      "tag": "div",
+      "top": 1419,
+      "height": 131,
+      "words": 0,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 482,
+      "right": 482,
+      "textLeft": null,
+      "textRight": null,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "睡前不复盘三遍，不算过完今天",
+      "size": 76,
+      "top": 266,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 96,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.15,
+    "voidBox": {
+     "x": 0,
+     "y": 90,
+     "w": 810,
+     "h": 135
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "palette-cream",
+   "width": 1080,
+   "message": "Yellow-cream background (section #fff7ed, text #fff7ed).",
+   "fix": "Use the drawn palette. If you want warmth, take a low-chroma stone or bone, not a yellow cream."
+  },
+  {
+   "level": "WARN",
+   "id": "first-action",
+   "width": 1080,
+   "message": "No visible button in the first screen.",
+   "fix": "Give the one primary action a real button in the first screen (a filled or solid-bordered control, 44px or taller), not only a link in the navigation."
+  },
+  {
+   "level": "WARN",
+   "id": "name-only-title",
+   "width": 1080,
+   "message": "The h1 is a bare name (\"睡前不复盘三遍，不算过完今天\") and nothing else on the first screen says what this is.",
+   "fix": "Keep the name if it leads, and give the line under it (18px or more) the plain words: what it is, for whom, where or when. In the study of 97 Sites of the Day, first screens that named nothing lost usability and content points."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "tablet",
+   "width": 1080,
+   "fold": "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/odv2-card_6_cta/tablet-fold.jpg",
+   "pages": [
+    "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/odv2-card_6_cta/tablet-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}
