@@ -1,0 +1,357 @@
+{
+ "url": "design/masters_b_split_stage/card_01_cover.html",
+ "at": "2026-11-04T11:06:49.712Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1080,
+   "height": 675,
+   "load": "load",
+   "screens": 3,
+   "filled": [
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "page": {
+     "height": 1440,
+     "screens": 2.1,
+     "words": 9,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 1,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "letter-sara.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "下班了，你却不敢走",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 56,
+     "vw": 5.2,
+     "font": "Noto Sans SC",
+     "weight": 800,
+     "tracking": 0,
+     "leading": 1.15,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.82,
+     "top": 164,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "下班了，你却不敢走",
+     "words": 1,
+     "lines": 1,
+     "size": 56,
+     "font": "Noto Sans SC"
+    },
+    "headings": [
+     {
+      "text": "下班了，你却不敢走",
+      "words": 1,
+      "chars": 9,
+      "lines": 1,
+      "size": 56,
+      "vw": 5.2,
+      "font": "Noto Sans SC",
+      "weight": 800,
+      "tracking": 0,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 164,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "工位上多坐的那半小时，今晚一次说清楚。",
+      "words": 1,
+      "chars": 19,
+      "lines": 1,
+      "size": 26,
+      "vw": 2.4,
+      "font": "Noto Sans SC",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.7,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 252,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "今晚十点，树洞开门。",
+      "words": 1,
+      "chars": 10,
+      "lines": 1,
+      "size": 26,
+      "vw": 2.4,
+      "font": "Noto Sans SC",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.7,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.82,
+      "top": 1017,
+      "tag": "p",
+      "kind": "statement"
+     }
+    ],
+    "headingSummary": {
+     "count": 3,
+     "maxLines": 1,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 0,
+     "medianWords": 1,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Noto Sans SC",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      18,
+      20,
+      26,
+      56
+     ],
+     "sizeCount": 4,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 56,
+      "vw": 5.2,
+      "font": "Noto Sans SC",
+      "text": "下班了，你却不敢走"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.18,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#431407",
+       "top": 0,
+       "hsl": {
+        "h": 13,
+        "s": 0.81,
+        "l": 0.15
+       }
+      },
+      {
+       "color": "#fff7ed",
+       "top": 48,
+       "hsl": {
+        "h": 33,
+        "s": 1,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#201a14",
+       "top": 329,
+       "hsl": {
+        "h": 30,
+        "s": 0.23,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#431407",
+       "share": 1
+      }
+     ],
+     "button": null,
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 0,
+     "inHero": 0,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": []
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 1,
+     "mediaRadius": 4,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.4
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": []
+   },
+   "layout": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "pageH": 1440,
+    "margins": {
+     "left": 96,
+     "right": 96
+    },
+    "sections": [],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "下班了，你却不敢走",
+      "size": 56,
+      "top": 164,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 96,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.11,
+    "voidBox": {
+     "x": 630,
+     "y": 135,
+     "w": 450,
+     "h": 180
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "palette-cream",
+   "width": 1080,
+   "message": "Yellow-cream background (section #fff7ed).",
+   "fix": "Use the drawn palette. If you want warmth, take a low-chroma stone or bone, not a yellow cream."
+  },
+  {
+   "level": "WARN",
+   "id": "first-action",
+   "width": 1080,
+   "message": "No visible button in the first screen.",
+   "fix": "Give the one primary action a real button in the first screen (a filled or solid-bordered control, 44px or taller), not only a link in the navigation."
+  },
+  {
+   "level": "WARN",
+   "id": "name-only-title",
+   "width": 1080,
+   "message": "The h1 is a bare name (\"下班了，你却不敢走\") and nothing else on the first screen says what this is.",
+   "fix": "Keep the name if it leads, and give the line under it (18px or more) the plain words: what it is, for whom, where or when. In the study of 97 Sites of the Day, first screens that named nothing lost usability and content points."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "tablet",
+   "width": 1080,
+   "fold": "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/b_split_stage-card_01_cover/tablet-fold.jpg",
+   "pages": [
+    "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/b_split_stage-card_01_cover/tablet-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}
