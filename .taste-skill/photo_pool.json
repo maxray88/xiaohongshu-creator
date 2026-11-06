@@ -1,0 +1,204 @@
+{
+ "version": 1,
+ "deny": [
+  "letter-signed-tom-*.jpg",
+  "huaxi-*.jpg"
+ ],
+ "cursor": {
+  "step": 6,
+  "per_day": 6,
+  "order": [
+   "cover",
+   "scene",
+   "insight",
+   "method",
+   "gentle",
+   "cta"
+  ],
+  "D": "day_num（每晚连续，公式不变）",
+  "formula": "photos[(D*6+k)%N]，k=0…5对应order；crop按(D+k)%2选cropA(偶)/cropB(奇)",
+  "note": "mod-4轮换已废弃：每晚固定F后cursor按连续day_num取图即天然零重合，无需取模选套。"
+ },
+ "photos": [
+  {
+   "short": "letter-sara",
+   "file": ".taste-skill/assets-src/letter-signed-sara-london-to-ernst-filsinger.jpg",
+   "caption": "1923 年 Sara 家书",
+   "credit": "1923 Sara 家书档案实拍",
+   "alt": "1923年手写家书信纸档案照",
+   "cropA": {
+    "h": 715,
+    "pos": "50% 42%"
+   },
+   "cropB": {
+    "h": 720,
+    "pos": "50% 12%"
+   }
+  },
+  {
+   "short": "stamp-orange",
+   "file": ".taste-skill/assets-src/romania-postage-stamp-king-carol-in-orange.jpg",
+   "caption": "橙色罗马尼亚国王邮票",
+   "credit": "橙色邮票档案实拍",
+   "alt": "橙色邮票档案照",
+   "cropA": {
+    "h": 760,
+    "pos": "50% 30%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 55%"
+   }
+  },
+  {
+   "short": "postcard-back",
+   "file": ".taste-skill/assets-src/postcard-aeroplane-view-gillette-wyoming-back.jpg",
+   "caption": "怀俄明飞机景观明信片背",
+   "credit": "明信片背档案实拍",
+   "alt": "怀俄明明信片背面档案照",
+   "cropA": {
+    "h": 690,
+    "pos": "50% 45%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 20%"
+   }
+  },
+  {
+   "short": "waxing-half-moon",
+   "file": ".taste-skill/assets-src/waxing-half-moon-over-brofjorden-1.jpg",
+   "caption": "Brofjorden 海湾半月",
+   "credit": "半月档案照实拍",
+   "alt": "夜空中的半月档案照",
+   "cropA": {
+    "h": 815,
+    "pos": "50% 38%"
+   },
+   "cropB": {
+    "h": 825,
+    "pos": "80% 90%"
+   }
+  },
+  {
+   "short": "night-lamp-tiffany",
+   "file": ".taste-skill/assets-src/night-lamp-tiffany.jpg",
+   "caption": "暖黄台灯档案照",
+   "credit": "暖黄台灯档案实拍",
+   "alt": "暗背景里亮着的暖黄蘑菇形台灯",
+   "cropA": {
+    "h": 700,
+    "pos": "50% 26%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 45%"
+   }
+  },
+  {
+   "short": "main-street-rocky-hill",
+   "file": ".taste-skill/assets-src/main-street-rocky-hill.jpg",
+   "caption": "1910 年主街明信片",
+   "credit": "1910 主街明信片实拍",
+   "alt": "1910 年主街明信片：教堂与空旷街道",
+   "cropA": {
+    "h": 600,
+    "pos": "50% 45%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 30%"
+   }
+  },
+  {
+   "short": "envelope-1920-feb",
+   "file": ".taste-skill/assets-src/envelope-1920-feb.jpg",
+   "caption": "1920 年贴票信封",
+   "credit": "1920 信封档案实拍",
+   "alt": "贴着三枚法国邮票的 1920 年信封",
+   "cropA": {
+    "h": 600,
+    "pos": "50% 30%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 50%"
+   }
+  },
+  {
+   "short": "moonlight-atlantic-nypl",
+   "file": ".taste-skill/assets-src/moonlight-atlantic-nypl.jpg",
+   "caption": "1901 年月夜海明信片",
+   "credit": "1901 月夜海明信片实拍",
+   "alt": "1901 年月夜海明信片：月光下的大西洋",
+   "cropA": {
+    "h": 590,
+    "pos": "50% 40%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 55%"
+   }
+  },
+  {
+   "short": "moonlit-waves-cape-cod",
+   "file": ".taste-skill/assets-src/moonlit-waves-cape-cod.jpg",
+   "caption": "月夜海浪明信片",
+   "credit": "月夜海浪明信片实拍",
+   "alt": "月夜下翻涌的海浪明信片",
+   "cropA": {
+    "h": 640,
+    "pos": "50% 45%"
+   },
+   "cropB": {
+    "h": 600,
+    "pos": "50% 30%"
+   }
+  },
+  {
+   "short": "night-lamp-print",
+   "file": ".taste-skill/assets-src/night-lamp-print.jpg",
+   "caption": "1936 年夜灯习作",
+   "credit": "1936 夜灯习作档案实拍",
+   "alt": "1936 年夜灯水彩习作与结构小图",
+   "cropA": {
+    "h": 620,
+    "pos": "50% 28%"
+   },
+   "cropB": {
+    "h": 660,
+    "pos": "50% 45%"
+   }
+  },
+  {
+   "short": "south-main-street-dayton-1910",
+   "file": ".taste-skill/assets-src/south-main-street-dayton-1910.jpg",
+   "caption": "1910 年代顿主街明信片",
+   "credit": "1910 代顿主街明信片实拍",
+   "alt": "1910 年代顿主街彩色明信片：两旁楼宇与远方街道",
+   "cropA": {
+    "h": 600,
+    "pos": "50% 40%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 65%"
+   }
+  },
+  {
+   "short": "envelope-1920-may",
+   "file": ".taste-skill/assets-src/envelope-1920-may.jpg",
+   "caption": "1920 年五月贴票信封",
+   "credit": "1920 五月信封档案实拍",
+   "alt": "贴着绿色法国邮票的 1920 年五月信封",
+   "cropA": {
+    "h": 600,
+    "pos": "50% 30%"
+   },
+   "cropB": {
+    "h": 640,
+    "pos": "50% 55%"
+   }
+  }
+ ]
+}
