@@ -230,6 +230,23 @@ Hermes cron 不走 login shell，`PATH` 里没有 `~/.pyenv/shims`，也没有 v
 `require_python()` 在解释器缺失/不可执行时**大声失败（exit 1）**，
 而不是静默退化到系统 python 报一堆无关的 `ModuleNotFoundError`。
 
+## 创作者自动回复（自己的帖子）
+
+operator 操作说明（转述自 `specs/001-creator-auto-reply/quickstart.md`，无新增事实）：
+
+- 前置：在 `~/.hermes/data/xhs_treehole/engagement_job.json`（chmod 600）配置
+  `own_user_id` 或 `own_profile_url` 之一，并确保 `expect_nick` 已填（**必填**，
+  缺失则 rc 2 拒绝）。
+- dry-run（默认，不带 `--live`）：`python3 bin/reply_to_own_comments.py` —— 只读
+  CDP 发现 + 打印计划 + 写 `reply_ledger.jsonl`（`dry_run: true`），不写
+  `reply_counter.json`，不调 LLM。
+- live 实发：`bin/run_reply_own_comments.sh`（导出 LLM 代理 env 后 `--live`）。
+  分阶段放行：先 dry-run cron/手动跑满 7 天、逐日核对零误判，再手动切 `--live`
+ （`reply_counter.json` 每日上限 3）。
+- 一键停机：任意异常 → 建 `ENGAGEMENT_STOP` 文件立即停机（kill-switch）；
+  上线首周每天看 `python3 bin/reply_to_own_comments.py --report` 输出审计。
+- 敌意评论出现即中止本轮并冷却 48h（`reply_state.json`）。
+
 ## 每日流水线
 
 | 时间 | 任务 | 入口 |

@@ -26,3 +26,6 @@ env/
 
 # macOS
 .DS_Store
+
+# spec-kit opencode integration artifacts (may carry agent session state)
+.opencode/

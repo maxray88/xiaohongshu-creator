@@ -577,7 +577,10 @@ class XiaohongshuPublisher:
             raise CDPError("Could not obtain WebSocket URL for any tab.")
 
         print(f"[cdp_publish] Connecting to {ws_url}")
-        self.ws = ws_client.connect(ws_url)
+        # CDP screenshots of 1080x1440@2x cards base64-encode to >1 MiB JSON
+        # frames; the websockets default 1 MiB receive cap kills the socket
+        # with 1009 mid-capture. Raise the cap (2026-11-10).
+        self.ws = ws_client.connect(ws_url, max_size=16 * 1024 * 1024)
         print("[cdp_publish] Connected to Chrome tab.")
 
     def disconnect(self):
@@ -984,6 +987,83 @@ class XiaohongshuPublisher:
         self._set_login_cache(scope, logged_in=True)
         print("[cdp_publish] Home login confirmed.")
         return True
+
+    def probe_current_nickname(self) -> str | None:
+        """Best-effort probe of the current session account nickname.
+
+        Scans window.__INITIAL_STATE__ for a node carrying a nickname plus
+        a user id/avatar (same pattern as the profile-snapshot scan), with
+        a DOM fallback. Never navigates. Returns None when the nickname
+        cannot be determined. Never raises.
+        """
+        try:
+            result = self._evaluate("""
+                (() => {
+                    const getByKeys = (obj, keys) => {
+                        if (!obj || typeof obj !== "object") {
+                            return null;
+                        }
+                        for (const key of keys) {
+                            const value = obj[key];
+                            if (value !== undefined && value !== null && String(value).trim()) {
+                                return String(value).trim();
+                            }
+                        }
+                        return null;
+                    };
+                    const queue = [window.__INITIAL_STATE__ || {}];
+                    const seen = new Set();
+                    let scans = 0;
+                    while (queue.length && scans < 2400) {
+                        scans += 1;
+                        const node = queue.shift();
+                        if (!node || typeof node !== "object" || seen.has(node)) {
+                            continue;
+                        }
+                        seen.add(node);
+                        if (!Array.isArray(node)) {
+                            const nameVal = getByKeys(node, [
+                                "nickname", "nickName", "name", "userName", "username",
+                            ]);
+                            const idVal = getByKeys(node, [
+                                "userId", "user_id", "userid", "uid", "redId", "red_id",
+                            ]);
+                            const avatarVal = getByKeys(node, [
+                                "avatar", "avatarUrl", "headUrl", "image", "images",
+                            ]);
+                            if (nameVal && (idVal || avatarVal)) {
+                                return nameVal;
+                            }
+                        }
+                        if (Array.isArray(node)) {
+                            for (const item of node) {
+                                if (item && typeof item === "object") {
+                                    queue.push(item);
+                                }
+                            }
+                            continue;
+                        }
+                        for (const key of Object.keys(node).slice(0, 120)) {
+                            const value = node[key];
+                            if (value && typeof value === "object") {
+                                queue.push(value);
+                            }
+                        }
+                    }
+                    const nameNode = document.querySelector(
+                        "h1, [class*='name'], [class*='nickname'], [class*='user-name']"
+                    );
+                    if (nameNode && nameNode.textContent && nameNode.textContent.trim()) {
+                        return nameNode.textContent.trim();
+                    }
+                    return null;
+                })()
+            """)
+        except Exception:  # noqa: BLE001 — probe never raises by contract
+            return None
+        if isinstance(result, str) and result.strip():
+            return result.strip()
+        return None
 
     def clear_cookies(self, domain: str = ".xiaohongshu.com"):
         """
@@ -1939,6 +2019,224 @@ class XiaohongshuPublisher:
             "comment_loading": comment_loading,
         }
 
+    def list_feed_comments(
+        self,
+        feed_id: str,
+        creator_nick: str | None = None,
+    ) -> dict[str, Any]:
+        """List structured comments for a feed without navigating or posting.
+
+        Reads the already-loaded feed detail page: first scans
+        ``window.__INITIAL_STATE__.note.noteDetailMap[feedId]`` for a
+        comments-shaped array (XHS field names are unstable, so keys are
+        matched heuristically), then falls back to ``.comment-item`` DOM
+        nodes plus sub-reply author scans. Never navigates, never posts,
+        never raises — failures return ``{"ok": False, ...}``.
+        """
+        try:
+            feed_literal = json.dumps((feed_id or "").strip(), ensure_ascii=False)
+            script = """
+                (() => {
+                    const feedId = __FEED_ID__;
+                    const normalize = (text) => (text || "").replace(/\\s+/g, " ").trim();
+                    const strOf = (obj, keys) => {
+                        if (!obj || typeof obj !== "object") {
+                            return "";
+                        }
+                        for (const key of keys) {
+                            const value = obj[key];
+                            if (typeof value === "string" && normalize(value)) {
+                                return normalize(value);
+                            }
+                            if (typeof value === "number" && Number.isFinite(value)) {
+                                return String(value);
+                            }
+                        }
+                        return "";
+                    };
+                    const out = [];
+                    const push = (item) => {
+                        if (!item || typeof item !== "object") {
+                            return;
+                        }
+                        const cid = strOf(item, ["commentId", "comment_id", "id"]);
+                        if (!cid) {
+                            return;
+                        }
+                        const subs = [];
+                        const subLists = [
+                            item.subComments, item.sub_comments, item.replies,
+                            item.subReplyList, item.children,
+                        ];
+                        for (const subList of subLists) {
+                            if (!Array.isArray(subList)) {
+                                continue;
+                            }
+                            for (const sub of subList) {
+                                const author = strOf(sub, [
+                                    "nickName", "nickname", "author", "name", "userName",
+                                ]);
+                                if (author) {
+                                    subs.push(author);
+                                }
+                            }
+                        }
+                        out.push({
+                            comment_id: cid,
+                            author: strOf(item, [
+                                "nickName", "nickname", "author", "name",
+                                "userName", "user_name",
+                            ]),
+                            content: strOf(item, ["content", "text", "commentText", "body"]),
+                            created_at: strOf(item, [
+                                "createTime", "createdAt", "created_at", "time",
+                            ]),
+                            sub_reply_authors: subs,
+                        });
+                    };
+                    let found = false;
+                    try {
+                        const state = window.__INITIAL_STATE__ || {};
+                        const note = state.note || {};
+                        const detailMap = note.noteDetailMap || note.note_detail_map || {};
+                        const candidates = [];
+                        for (const key of Object.keys(detailMap)) {
+                            const entry = detailMap[key];
+                            if (!entry || typeof entry !== "object") {
+                                continue;
+                            }
+                            const entryId = strOf(entry, ["noteId", "feedId", "id"]);
+                            if (key === feedId || (entryId && entryId === feedId)) {
+                                candidates.unshift(entry);
+                            } else {
+                                candidates.push(entry);
+                            }
+                        }
+                        const pickList = (entry) => {
+                            for (const key of ["commentList", "comments", "comment_list"]) {
+                                if (Array.isArray(entry[key])) {
+                                    return entry[key];
+                                }
+                            }
+                            for (const key of Object.keys(entry)) {
+                                const value = entry[key];
+                                if (
+                                    Array.isArray(value) && value.length &&
+                                    typeof value[0] === "object" && (
+                                        value[0].commentId !== undefined ||
+                                        value[0].comment_id !== undefined ||
+                                        value[0].id !== undefined
+                                    )
+                                ) {
+                                    return value;
+                                }
+                            }
+                            return null;
+                        };
+                        for (const entry of candidates) {
+                            const list = pickList(entry);
+                            if (list) {
+                                for (const item of list) {
+                                    push(item);
+                                }
+                                found = out.length > 0;
+                                break;
+                            }
+                        }
+                    } catch (stateError) {
+                        found = false;
+                    }
+                    if (!found) {
+                        const nodes = document.querySelectorAll(
+                            ".comment-item, [class*='comment-item']"
+                        );
+                        for (const node of nodes) {
+                            if (!(node instanceof HTMLElement)) {
+                                continue;
+                            }
+                            let cid = "";
+                            const attrs = ["data-comment-id", "data-id", "comment-id", "id"];
+                            for (const attr of attrs) {
+                                const value = node.getAttribute(attr);
+                                if (value && normalize(value)) {
+                                    cid = normalize(value);
+                                    break;
+                                }
+                            }
+                            if (!cid && node.dataset) {
+                                cid = normalize(
+                                    node.dataset.commentId || node.dataset.id ||
+                                    node.dataset.commentid || ""
+                                );
+                            }
+                            if (!cid) {
+                                continue;
+                            }
+                            const authorNode = node.querySelector(
+                                "[class*='author'], [class*='name'], [class*='user']"
+                            );
+                            const author = normalize(authorNode ? authorNode.textContent : "");
+                            const text = normalize(node.innerText || node.textContent);
+                            const subs = [];
+                            const subNodes = node.querySelectorAll(
+                                ".sub-comment li, .sub-comment, " +
+                                "[class*='sub-reply'], [class*='reply-item'], li[class*='reply']"
+                            );
+                            for (const subNode of subNodes) {
+                                const subAuthorNode = subNode.querySelector(
+                                    "[class*='author'], [class*='name'], [class*='user']"
+                                );
+                                const subAuthor = normalize(
+                                    subAuthorNode ? subAuthorNode.textContent : ""
+                                );
+                                if (subAuthor) {
+                                    subs.push(subAuthor);
+                                }
+                            }
+                            out.push({
+                                comment_id: cid,
+                                author: author,
+                                content: text.slice(0, 500),
+                                created_at: "",
+                                sub_reply_authors: subs,
+                            });
+                        }
+                    }
+                    return { ok: true, comments: out, raw_count: out.length };
+                })()
+            """
+            result = self._evaluate(script.replace("__FEED_ID__", feed_literal))
+        except Exception as exc:  # noqa: BLE001 — contract: never raises
+            return {"ok": False, "comments": [], "raw_count": 0, "error": str(exc)}
+        if not isinstance(result, dict):
+            return {"ok": False, "comments": [], "raw_count": 0, "error": "unexpected_result"}
+        raw = result.get("comments")
+        if not isinstance(raw, list):
+            raw = []
+        nick = (creator_nick or "").strip()
+        comments: list[dict[str, Any]] = []
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            cid = str(item.get("comment_id") or "").strip()
+            if not cid:
+                continue
+            subs = item.get("sub_reply_authors")
+            sub_authors = [str(a).strip() for a in subs if str(a).strip()] if isinstance(subs, list) else []
+            comments.append({
+                "comment_id": cid,
+                "author": str(item.get("author") or ""),
+                "content": str(item.get("content") or ""),
+                "created_at": str(item.get("created_at") or ""),
+                "has_creator_reply": bool(nick and nick in sub_authors),
+            })
+        raw_count = result.get("raw_count")
+        return {
+            "ok": bool(result.get("ok", True)),
+            "comments": comments,
+            "raw_count": int(raw_count) if isinstance(raw_count, int) else len(comments),
+        }
+
     def _resolve_profile_url(
         self,
         profile_url: str | None = None,
@@ -2088,6 +2386,107 @@ class XiaohongshuPublisher:
             raise CDPError("Could not extract profile snapshot from current page.")
         return snapshot
 
+    def _extract_profile_notes_from_state(self, limit: int) -> list[dict[str, Any]]:
+        """Extract own-profile notes (with xsec_token) from window.__INITIAL_STATE__.
+
+        Single _evaluate, never navigates, never raises: any failure returns [].
+        Own profile pages render note links without xsec_token, while the
+        embedded state (state.user.notes, MobX _value/_rawValue atoms) carries
+        noteCard entries including xsecToken.
+        """
+        try:
+            safe_limit = max(1, int(limit))
+        except (TypeError, ValueError):
+            return []
+        script = """
+            (() => {
+                const limit = __LIMIT__;
+                const unwrap = (v) => (
+                    (v && typeof v === "object")
+                        ? (v._value !== undefined
+                            ? v._value
+                            : (v._rawValue !== undefined ? v._rawValue : v))
+                        : v
+                );
+                let notes = unwrap((window.__INITIAL_STATE__ || {}).user?.notes);
+                if (Array.isArray(notes) && Array.isArray(notes[0])) {
+                    notes = notes[0];
+                }
+                if (!Array.isArray(notes)) {
+                    return [];
+                }
+                const idRe = /^[0-9a-fA-F]{24}$/;
+                const out = [];
+                for (const raw of notes) {
+                    const item = unwrap(raw);
+                    if (!item || typeof item !== "object") {
+                        continue;
+                    }
+                    const card = unwrap(item.noteCard) || item;
+                    if (!card || typeof card !== "object") {
+                        continue;
+                    }
+                    const noteId = String(card.id || card.noteId || "");
+                    if (!idRe.test(noteId)) {
+                        continue;
+                    }
+                    const token = String(card.xsecToken || card.xsec_token || card.token || "");
+                    const title = String(card.displayTitle || card.title || "");
+                    let cover = "";
+                    const cov = card.cover;
+                    if (cov && typeof cov === "object") {
+                        const infoList = cov.infoList || cov.info_list;
+                        if (Array.isArray(infoList) && infoList.length && infoList[0]
+                                && typeof infoList[0] === "object") {
+                            cover = String(infoList[0].url || "");
+                        }
+                        if (!cover) {
+                            cover = String(cov.url || "");
+                        }
+                    }
+                    out.push({
+                        id: noteId,
+                        xsec_token: token,
+                        title,
+                        cover,
+                        note_url: token
+                            ? ("https://www.xiaohongshu.com/explore/" + noteId
+                               + "?xsec_token=" + token + "&xsec_source=web")
+                            : "",
+                    });
+                    if (out.length >= limit) {
+                        break;
+                    }
+                }
+                return out;
+            })()
+        """
+        try:
+            result = self._evaluate(script.replace("__LIMIT__", str(safe_limit)))
+        except Exception:  # noqa: BLE001 — state probe must never raise; failure means []
+            return []
+        if not isinstance(result, list):
+            return []
+        cleaned: list[dict[str, Any]] = []
+        for entry in result[:safe_limit]:
+            if not isinstance(entry, dict):
+                continue
+            note_id = str(entry.get("id") or "")
+            if len(note_id) != 24:
+                continue
+            token = str(entry.get("xsec_token") or "")
+            cleaned.append({
+                "id": note_id,
+                "xsec_token": token,
+                "title": str(entry.get("title") or ""),
+                "cover": str(entry.get("cover") or ""),
+                "note_url": str(entry.get("note_url") or (
+                    f"https://www.xiaohongshu.com/explore/{note_id}"
+                    f"?xsec_token={token}&xsec_source=web" if token else ""
+                )),
+            })
+        return cleaned
+
     def _extract_note_cards_from_profile_dom(self, limit: int) -> dict[str, Any]:
         """Extract note cards from current profile page DOM."""
         safe_limit = max(1, int(limit))
@@ -2219,6 +2618,41 @@ class XiaohongshuPublisher:
                 break
             self._evaluate("window.scrollTo(0, document.body.scrollHeight); true;")
             self._sleep(1.2, minimum_seconds=0.4)
+
+        dom_notes = best_notes if isinstance(best_notes, list) else []
+        dom_all_empty = bool(dom_notes) and all(
+            not str(n.get("xsec_token") or "") for n in dom_notes if isinstance(n, dict)
+        )
+        if not dom_notes or dom_all_empty:
+            try:
+                state_notes = self._extract_profile_notes_from_state(safe_limit)
+            except Exception:  # noqa: BLE001 — fallback is best-effort; keep DOM notes
+                state_notes = []
+            if isinstance(state_notes, list) and state_notes:
+                if not dom_notes:
+                    dom_notes = [n for n in state_notes if isinstance(n, dict)][:safe_limit]
+                else:
+                    by_id = {
+                        str(n.get("id") or ""): n
+                        for n in state_notes
+                        if isinstance(n, dict) and str(n.get("id") or "")
+                    }
+                    for note in dom_notes:
+                        if not isinstance(note, dict):
+                            continue
+                        if str(note.get("xsec_token") or ""):
+                            continue
+                        match = by_id.get(str(note.get("id") or ""))
+                        if not match:
+                            continue
+                        if str(match.get("xsec_token") or ""):
+                            note["xsec_token"] = str(match.get("xsec_token"))
+                            note["note_url"] = str(match.get("note_url") or note.get("note_url") or "")
+                        if not str(note.get("title") or "") and str(match.get("title") or ""):
+                            note["title"] = str(match.get("title"))
+                        if not str(note.get("cover") or "") and str(match.get("cover") or ""):
+                            note["cover"] = str(match.get("cover"))
+                best_notes = dom_notes
 
         return {
             "profile_url": page_url,
