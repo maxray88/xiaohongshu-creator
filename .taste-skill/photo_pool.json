@@ -1,204 +1,744 @@
 {
- "version": 1,
- "deny": [
-  "letter-signed-tom-*.jpg",
-  "huaxi-*.jpg"
- ],
- "cursor": {
-  "step": 6,
-  "per_day": 6,
-  "order": [
-   "cover",
-   "scene",
-   "insight",
-   "method",
-   "gentle",
-   "cta"
+  "version": 1,
+  "deny": [
+    "letter-signed-tom-*.jpg",
+    "huaxi-*.jpg"
   ],
-  "D": "day_num（每晚连续，公式不变）",
-  "formula": "photos[(D*6+k)%N]，k=0…5对应order；crop按(D+k)%2选cropA(偶)/cropB(奇)",
-  "note": "mod-4轮换已废弃：每晚固定F后cursor按连续day_num取图即天然零重合，无需取模选套。"
- },
- "photos": [
-  {
-   "short": "letter-sara",
-   "file": ".taste-skill/assets-src/letter-signed-sara-london-to-ernst-filsinger.jpg",
-   "caption": "1923 年 Sara 家书",
-   "credit": "1923 Sara 家书档案实拍",
-   "alt": "1923年手写家书信纸档案照",
-   "cropA": {
-    "h": 715,
-    "pos": "50% 42%"
-   },
-   "cropB": {
-    "h": 720,
-    "pos": "50% 12%"
-   }
+  "cursor": {
+    "step": 6,
+    "per_day": 6,
+    "order": [
+      "cover",
+      "scene",
+      "insight",
+      "method",
+      "gentle",
+      "cta"
+    ],
+    "D": "day_num（每晚连续，公式不变）",
+    "formula": "photos[(D*6+k)%N]，k=0…5对应order；crop按(D+k)%2选cropA(偶)/cropB(奇)",
+    "note": "mod-4轮换已废弃：每晚固定F后cursor按连续day_num取图即天然零重合，无需取模选套。"
   },
-  {
-   "short": "stamp-orange",
-   "file": ".taste-skill/assets-src/romania-postage-stamp-king-carol-in-orange.jpg",
-   "caption": "橙色罗马尼亚国王邮票",
-   "credit": "橙色邮票档案实拍",
-   "alt": "橙色邮票档案照",
-   "cropA": {
-    "h": 760,
-    "pos": "50% 30%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 55%"
-   }
-  },
-  {
-   "short": "postcard-back",
-   "file": ".taste-skill/assets-src/postcard-aeroplane-view-gillette-wyoming-back.jpg",
-   "caption": "怀俄明飞机景观明信片背",
-   "credit": "明信片背档案实拍",
-   "alt": "怀俄明明信片背面档案照",
-   "cropA": {
-    "h": 690,
-    "pos": "50% 45%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 20%"
-   }
-  },
-  {
-   "short": "waxing-half-moon",
-   "file": ".taste-skill/assets-src/waxing-half-moon-over-brofjorden-1.jpg",
-   "caption": "Brofjorden 海湾半月",
-   "credit": "半月档案照实拍",
-   "alt": "夜空中的半月档案照",
-   "cropA": {
-    "h": 815,
-    "pos": "50% 38%"
-   },
-   "cropB": {
-    "h": 825,
-    "pos": "80% 90%"
-   }
-  },
-  {
-   "short": "night-lamp-tiffany",
-   "file": ".taste-skill/assets-src/night-lamp-tiffany.jpg",
-   "caption": "暖黄台灯档案照",
-   "credit": "暖黄台灯档案实拍",
-   "alt": "暗背景里亮着的暖黄蘑菇形台灯",
-   "cropA": {
-    "h": 700,
-    "pos": "50% 26%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 45%"
-   }
-  },
-  {
-   "short": "main-street-rocky-hill",
-   "file": ".taste-skill/assets-src/main-street-rocky-hill.jpg",
-   "caption": "1910 年主街明信片",
-   "credit": "1910 主街明信片实拍",
-   "alt": "1910 年主街明信片：教堂与空旷街道",
-   "cropA": {
-    "h": 600,
-    "pos": "50% 45%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 30%"
-   }
-  },
-  {
-   "short": "envelope-1920-feb",
-   "file": ".taste-skill/assets-src/envelope-1920-feb.jpg",
-   "caption": "1920 年贴票信封",
-   "credit": "1920 信封档案实拍",
-   "alt": "贴着三枚法国邮票的 1920 年信封",
-   "cropA": {
-    "h": 600,
-    "pos": "50% 30%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 50%"
-   }
-  },
-  {
-   "short": "moonlight-atlantic-nypl",
-   "file": ".taste-skill/assets-src/moonlight-atlantic-nypl.jpg",
-   "caption": "1901 年月夜海明信片",
-   "credit": "1901 月夜海明信片实拍",
-   "alt": "1901 年月夜海明信片：月光下的大西洋",
-   "cropA": {
-    "h": 590,
-    "pos": "50% 40%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 55%"
-   }
-  },
-  {
-   "short": "moonlit-waves-cape-cod",
-   "file": ".taste-skill/assets-src/moonlit-waves-cape-cod.jpg",
-   "caption": "月夜海浪明信片",
-   "credit": "月夜海浪明信片实拍",
-   "alt": "月夜下翻涌的海浪明信片",
-   "cropA": {
-    "h": 640,
-    "pos": "50% 45%"
-   },
-   "cropB": {
-    "h": 600,
-    "pos": "50% 30%"
-   }
-  },
-  {
-   "short": "night-lamp-print",
-   "file": ".taste-skill/assets-src/night-lamp-print.jpg",
-   "caption": "1936 年夜灯习作",
-   "credit": "1936 夜灯习作档案实拍",
-   "alt": "1936 年夜灯水彩习作与结构小图",
-   "cropA": {
-    "h": 620,
-    "pos": "50% 28%"
-   },
-   "cropB": {
-    "h": 660,
-    "pos": "50% 45%"
-   }
-  },
-  {
-   "short": "south-main-street-dayton-1910",
-   "file": ".taste-skill/assets-src/south-main-street-dayton-1910.jpg",
-   "caption": "1910 年代顿主街明信片",
-   "credit": "1910 代顿主街明信片实拍",
-   "alt": "1910 年代顿主街彩色明信片：两旁楼宇与远方街道",
-   "cropA": {
-    "h": 600,
-    "pos": "50% 40%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 65%"
-   }
-  },
-  {
-   "short": "envelope-1920-may",
-   "file": ".taste-skill/assets-src/envelope-1920-may.jpg",
-   "caption": "1920 年五月贴票信封",
-   "credit": "1920 五月信封档案实拍",
-   "alt": "贴着绿色法国邮票的 1920 年五月信封",
-   "cropA": {
-    "h": 600,
-    "pos": "50% 30%"
-   },
-   "cropB": {
-    "h": 640,
-    "pos": "50% 55%"
-   }
-  }
- ]
+  "photos": [
+    {
+      "short": "letter-sara",
+      "file": ".taste-skill/assets-src/letter-signed-sara-london-to-ernst-filsinger.jpg",
+      "caption": "1923 年 Sara 家书",
+      "credit": "1923 Sara 家书档案实拍",
+      "alt": "1923年手写家书信纸档案照",
+      "cropA": {
+        "h": 715,
+        "pos": "50% 42%"
+      },
+      "cropB": {
+        "h": 720,
+        "pos": "50% 12%"
+      }
+    },
+    {
+      "short": "stamp-orange",
+      "file": ".taste-skill/assets-src/romania-postage-stamp-king-carol-in-orange.jpg",
+      "caption": "橙色罗马尼亚国王邮票",
+      "credit": "橙色邮票档案实拍",
+      "alt": "橙色邮票档案照",
+      "cropA": {
+        "h": 760,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 55%"
+      }
+    },
+    {
+      "short": "postcard-back",
+      "file": ".taste-skill/assets-src/postcard-aeroplane-view-gillette-wyoming-back.jpg",
+      "caption": "怀俄明飞机景观明信片背",
+      "credit": "明信片背档案实拍",
+      "alt": "怀俄明明信片背面档案照",
+      "cropA": {
+        "h": 690,
+        "pos": "50% 45%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 20%"
+      }
+    },
+    {
+      "short": "waxing-half-moon",
+      "file": ".taste-skill/assets-src/waxing-half-moon-over-brofjorden-1.jpg",
+      "caption": "Brofjorden 海湾半月",
+      "credit": "半月档案照实拍",
+      "alt": "夜空中的半月档案照",
+      "cropA": {
+        "h": 815,
+        "pos": "50% 38%"
+      },
+      "cropB": {
+        "h": 825,
+        "pos": "80% 90%"
+      }
+    },
+    {
+      "short": "night-lamp-tiffany",
+      "file": ".taste-skill/assets-src/night-lamp-tiffany.jpg",
+      "caption": "暖黄台灯档案照",
+      "credit": "暖黄台灯档案实拍",
+      "alt": "暗背景里亮着的暖黄蘑菇形台灯",
+      "cropA": {
+        "h": 700,
+        "pos": "50% 26%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 45%"
+      }
+    },
+    {
+      "short": "main-street-rocky-hill",
+      "file": ".taste-skill/assets-src/main-street-rocky-hill.jpg",
+      "caption": "1910 年主街明信片",
+      "credit": "1910 主街明信片实拍",
+      "alt": "1910 年主街明信片：教堂与空旷街道",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 45%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 30%"
+      }
+    },
+    {
+      "short": "envelope-1920-feb",
+      "file": ".taste-skill/assets-src/envelope-1920-feb.jpg",
+      "caption": "1920 年贴票信封",
+      "credit": "1920 信封档案实拍",
+      "alt": "贴着三枚法国邮票的 1920 年信封",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 50%"
+      }
+    },
+    {
+      "short": "moonlight-atlantic-nypl",
+      "file": ".taste-skill/assets-src/moonlight-atlantic-nypl.jpg",
+      "caption": "1901 年月夜海明信片",
+      "credit": "1901 月夜海明信片实拍",
+      "alt": "1901 年月夜海明信片：月光下的大西洋",
+      "cropA": {
+        "h": 590,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 55%"
+      }
+    },
+    {
+      "short": "moonlit-waves-cape-cod",
+      "file": ".taste-skill/assets-src/moonlit-waves-cape-cod.jpg",
+      "caption": "月夜海浪明信片",
+      "credit": "月夜海浪明信片实拍",
+      "alt": "月夜下翻涌的海浪明信片",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 45%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 30%"
+      }
+    },
+    {
+      "short": "night-lamp-print",
+      "file": ".taste-skill/assets-src/night-lamp-print.jpg",
+      "caption": "1936 年夜灯习作",
+      "credit": "1936 夜灯习作档案实拍",
+      "alt": "1936 年夜灯水彩习作与结构小图",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 28%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 45%"
+      }
+    },
+    {
+      "short": "south-main-street-dayton-1910",
+      "file": ".taste-skill/assets-src/south-main-street-dayton-1910.jpg",
+      "caption": "1910 年代顿主街明信片",
+      "credit": "1910 代顿主街明信片实拍",
+      "alt": "1910 年代顿主街彩色明信片：两旁楼宇与远方街道",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 65%"
+      }
+    },
+    {
+      "short": "envelope-1920-may",
+      "file": ".taste-skill/assets-src/envelope-1920-may.jpg",
+      "caption": "1920 年五月贴票信封",
+      "credit": "1920 五月信封档案实拍",
+      "alt": "贴着绿色法国邮票的 1920 年五月信封",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 55%"
+      }
+    },
+    {
+      "short": "moonlight-zittau-postcard",
+      "file": ".taste-skill/assets-src/moonlight-zittau-postcard.jpg",
+      "caption": "1903 年齐陶月夜明信片",
+      "credit": "1903 齐陶月夜明信片实拍",
+      "alt": "1903 年齐陶月夜明信片：教堂市政厅与手写寄语",
+      "cropA": {
+        "h": 660,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 620,
+        "pos": "50% 65%"
+      }
+    },
+    {
+      "short": "main-street-old-town",
+      "file": ".taste-skill/assets-src/main-street-old-town.jpg",
+      "caption": "缅因旧镇主街明信片",
+      "credit": "缅因旧镇主街明信片实拍",
+      "alt": "缅因旧镇主街明信片：店铺骑楼与空旷街道",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 45%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 25%"
+      }
+    },
+    {
+      "short": "moonlight-buttermere",
+      "file": ".taste-skill/assets-src/moonlight-buttermere.jpg",
+      "caption": "1905 年湖畔月夜明信片",
+      "credit": "1905 湖畔月夜明信片实拍",
+      "alt": "1905 年月夜湖畔明信片：满月下的湖水与群山",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "moonlight-clacton-pier",
+      "file": ".taste-skill/assets-src/moonlight-clacton-pier.jpg",
+      "caption": "1911 年码头月夜明信片",
+      "credit": "1911 码头月夜明信片实拍",
+      "alt": "1911 年码头月夜明信片：海面月光与原贴邮票邮戳",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 50%"
+      },
+      "cropB": {
+        "h": 650,
+        "pos": "50% 30%"
+      }
+    },
+    {
+      "short": "streetcar-wareham-main",
+      "file": ".taste-skill/assets-src/streetcar-wareham-main.jpg",
+      "caption": "Wareham 电车主街明信片",
+      "credit": "Wareham 电车主街明信片实拍",
+      "alt": "Wareham 主街电车明信片：光秃行道树与手写寄语",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "moonlight-bedford-river",
+      "file": ".taste-skill/assets-src/moonlight-bedford-river.jpg",
+      "caption": "贝德福德月夜河明信片",
+      "credit": "贝德福德月夜河明信片实拍",
+      "alt": "贝德福德堰桥月夜河明信片：系泊小船与教堂尖顶",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 70%"
+      }
+    },
+    {
+      "short": "graf-zeppelin-stamp",
+      "file": ".taste-skill/assets-src/graf-zeppelin-stamp-1930.jpg",
+      "caption": "1930 年齐柏林邮票",
+      "credit": "1930 齐柏林邮票档案实拍",
+      "alt": "1930 年齐柏林飞艇邮票档案照",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "envelope-1920-march-11",
+      "file": ".taste-skill/assets-src/envelope-1920-march-11.jpg",
+      "caption": "1920 年三月贴票信封",
+      "credit": "1920 三月信封档案实拍",
+      "alt": "1920 年三月贴票信封档案照",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 65%"
+      }
+    },
+    {
+      "short": "envelope-1920-december-27",
+      "file": ".taste-skill/assets-src/envelope-1920-december-27.jpg",
+      "caption": "1920 年十二月贴票信封",
+      "credit": "1920 十二月信封档案实拍",
+      "alt": "1920 年十二月贴票信封档案照",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 55%"
+      }
+    },
+    {
+      "short": "envelope-1920-december-27-back",
+      "file": ".taste-skill/assets-src/envelope-1920-december-27-page2.jpg",
+      "caption": "1920 年十二月信封背面",
+      "credit": "1920 十二月信封背面档案实拍",
+      "alt": "1920 年十二月信封背面档案照",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 45%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 25%"
+      }
+    },
+    {
+      "short": "state-street-newburyport-1910",
+      "file": ".taste-skill/assets-src/state-street-newburyport-1910.jpg",
+      "caption": "1910 年代纽伯里波特主街明信片",
+      "credit": "1910 纽伯里波特主街明信片实拍",
+      "alt": "1910 年代纽伯里波特主街明信片档案照",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 70%"
+      }
+    },
+    {
+      "short": "streetcar-elm-street-westfield-1920",
+      "file": ".taste-skill/assets-src/streetcar-elm-street-westfield-1920.jpg",
+      "caption": "1920 年西菲尔德电车主街明信片",
+      "credit": "1920 西菲尔德电车主街明信片实拍",
+      "alt": "1920 年西菲尔德电车主街明信片档案照",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "letter-holyoke-1921",
+      "file": ".taste-skill/assets-src/german-letter-to-holyoke-1921.jpg",
+      "caption": "1920 年德国寄霍普金信封",
+      "credit": "1920 德国信封档案实拍",
+      "alt": "贴着德国邮票、寄往马萨诸塞霍普金的 1920 年信封",
+      "cropA": {
+        "h": 600,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 640,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "night-ashtabula-harbor",
+      "file": ".taste-skill/assets-src/night-scene-ashtabula-harbor.jpg",
+      "caption": "1914 年阿什塔比拉港夜景明信片",
+      "credit": "1914 阿什塔比拉港夜景明信片实拍",
+      "alt": "1914 年阿什塔比拉港夜景明信片：月光洒在海面与货轮上",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "lower-falls-night",
+      "file": ".taste-skill/assets-src/lower-falls-night-spokane.jpg",
+      "caption": "1910 年斯波肯下瀑布夜景明信片",
+      "credit": "1910 斯波肯下瀑布夜景明信片实拍",
+      "alt": "1910 年斯波肯下瀑布夜景明信片：灯火通明的水电厂与瀑布",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 55%"
+      }
+    },
+    {
+      "short": "moonlight-water-1925",
+      "file": ".taste-skill/assets-src/moonlight-on-water-1925.jpg",
+      "caption": "约 1925 年月夜海面照",
+      "credit": "1925 月夜海面档案照实拍",
+      "alt": "约 1925 年月夜海面银盐照片：月光铺满水面",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 65%"
+      }
+    },
+    {
+      "short": "brest-harbor-night",
+      "file": ".taste-skill/assets-src/brest-harbor-night-postcard.jpg",
+      "caption": "法国布雷斯特港月夜明信片",
+      "credit": "布雷斯特港月夜明信片实拍",
+      "alt": "法国布雷斯特锚地月夜明信片：月下战舰与平静海面",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "santa-fe-station-night",
+      "file": ".taste-skill/assets-src/santa-fe-station-night.jpg",
+      "caption": "1915 年洛杉矶圣菲车站夜景明信片",
+      "credit": "1915 圣菲车站夜景明信片实拍",
+      "alt": "约 1915 年洛杉矶圣菲车站夜景明信片：月光下的穹顶与暖窗",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "red-moon-nocturne",
+      "file": ".taste-skill/assets-src/red-moon-nocturne-postcard-1904.jpg",
+      "caption": "1904 年红月夜景卡片",
+      "credit": "1904 红月夜卡片档案实拍",
+      "alt": "1904 年红月夜景明信片：月下草地与远处树林",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 65%"
+      }
+    },
+    {
+      "short": "moonlight-rehoboth",
+      "file": ".taste-skill/assets-src/moonlight-ocean-rehoboth-beach-postcard.jpg",
+      "caption": "雷霍博奇海滩月夜明信片",
+      "credit": "雷霍博奇海滩月夜明信片实拍",
+      "alt": "雷霍博奇海滩月夜明信片：月光洒在海浪上",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "moonlit-pier-venice",
+      "file": ".taste-skill/assets-src/moonlit-pier-venice-california-postcard.jpg",
+      "caption": "威尼斯码头月夜明信片",
+      "credit": "威尼斯码头月夜明信片实拍",
+      "alt": "威尼斯码头月夜明信片：月光下的码头灯火",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "corbiere-lighthouse",
+      "file": ".taste-skill/assets-src/corbiere-lighthouse-moonlight-photochrom.jpg",
+      "caption": "泽西岛灯塔月夜明信片",
+      "credit": "泽西岛灯塔月夜明信片实拍",
+      "alt": "泽西岛 Corbière 灯塔月夜明信片：月下灯塔与海面",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 65%"
+      }
+    },
+    {
+      "short": "moonlight-bar-harbor",
+      "file": ".taste-skill/assets-src/moonlight-shore-path-bar-harbor-postcard.jpg",
+      "caption": "巴尔港海岸月夜明信片",
+      "credit": "巴尔港海岸月夜明信片实拍",
+      "alt": "巴尔港海岸月夜明信片：月下海面与礁石",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "thuringia-forest-path",
+      "file": ".taste-skill/assets-src/stimmungsbild-thuringen-forest-path-1903.jpg",
+      "caption": "1903 年图林根林间小路",
+      "credit": "1903 图林根林间小路档案实拍",
+      "alt": "1903 年图林根林间小路明信片：月光下的森林小径",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "fuessen-moonlight",
+      "file": ".taste-skill/assets-src/fuessen-moonlight-postcard-1899.jpg",
+      "caption": "1899 年菲森月夜明信片",
+      "credit": "1899 菲森月夜明信片实拍",
+      "alt": "1899 年菲森月夜明信片：山坡城堡与手写寄语",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "provincetown-wharf-night",
+      "file": ".taste-skill/assets-src/provincetown-wharf-moonlight-postcard.jpg",
+      "caption": "月夜下的普罗温斯敦铁路码头",
+      "credit": "普罗温斯敦码头月夜明信片实拍",
+      "alt": "月夜下弯曲的铁路码头与泊港帆桅",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "isola-bella-moonlight",
+      "file": ".taste-skill/assets-src/isola-bella-moonlight-photochrom.jpg",
+      "caption": "马焦雷湖贝拉岛月夜",
+      "credit": "贝拉岛月夜 photochrom 明信片实拍",
+      "alt": "马焦雷湖贝拉岛月夜：宫殿与花园",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "algiers-mole-moonlight",
+      "file": ".taste-skill/assets-src/algiers-mole-lighthouse-moonlight-photochrom.jpg",
+      "caption": "阿尔及尔防波堤灯塔月夜",
+      "credit": "阿尔及尔灯塔月夜 photochrom 实拍",
+      "alt": "阿尔及尔防波堤与灯塔的月夜海面",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "lithuanian-stamps-1920",
+      "file": ".taste-skill/assets-src/lithuanian-postage-stamps-1920.jpg",
+      "caption": "1920 年立陶宛邮票一组",
+      "credit": "1920 立陶宛邮票档案实拍",
+      "alt": "1920 年立陶宛邮票一组：纹章与寓意人物",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "arabic-letter-1920",
+      "file": ".taste-skill/assets-src/arabic-handwritten-letter-1920.jpg",
+      "caption": "1920 年阿拉伯文手写信",
+      "credit": "1920 阿拉伯文手写信档案实拍",
+      "alt": "1920 年折叠的阿拉伯文手写信纸",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "nellie-letter-1920",
+      "file": ".taste-skill/assets-src/nellie-mccluer-letter-1920.jpg",
+      "caption": "1920 年 Nellie 手写信",
+      "credit": "1920 Nellie 手写信档案实拍",
+      "alt": "1920 年 Helen Nellie McCluer 手写书信页",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "house-of-lords-postcard",
+      "file": ".taste-skill/assets-src/house-of-lords-chamber-postcard-1927.jpg",
+      "caption": "1927 年伦敦上议院明信片",
+      "credit": "1927 伦敦上议院明信片实拍",
+      "alt": "1927 年伦敦上议院室内老明信片",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "halifax-river-moonlight",
+      "file": ".taste-skill/assets-src/moonlight-halifax-river-daytona.jpg",
+      "caption": "Daytona 哈利法克斯河月夜明信片",
+      "credit": "底特律出版公司月夜明信片实拍",
+      "alt": "月夜下 Daytona 哈利法克斯河：棕榈剪影与长桥",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 30%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "old-orchard-moonlight",
+      "file": ".taste-skill/assets-src/moonlight-old-orchard-beach.jpg",
+      "caption": "老果园海滩月夜海浪明信片",
+      "credit": "老果园海滩月夜明信片实拍",
+      "alt": "月夜下 Old Orchard Beach 的海浪与月光",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "cumberland-street-night",
+      "file": ".taste-skill/assets-src/cumberland-street-night-lebanon.jpg",
+      "caption": "黎巴嫩 Cumberland 街月夜明信片",
+      "credit": "Cumberland 街月夜明信片实拍",
+      "alt": "月夜下安静的 Cumberland 街与街灯",
+      "cropA": {
+        "h": 620,
+        "pos": "50% 35%"
+      },
+      "cropB": {
+        "h": 660,
+        "pos": "50% 60%"
+      }
+    },
+    {
+      "short": "ljubljana-night-1938",
+      "file": ".taste-skill/assets-src/ljubljana-congress-square-night-1938.jpg",
+      "caption": "1938 年卢布尔雅那夜景明信片",
+      "credit": "1938 卢布尔雅那夜景明信片实拍",
+      "alt": "1938 年卢布尔雅那议会广场夜景与街灯",
+      "cropA": {
+        "h": 640,
+        "pos": "50% 40%"
+      },
+      "cropB": {
+        "h": 600,
+        "pos": "50% 65%"
+      }
+    }
+  ]
 }

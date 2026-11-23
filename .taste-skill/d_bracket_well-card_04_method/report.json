@@ -1,0 +1,484 @@
+{
+ "url": "design/masters_d_bracket_well/card_04_method.html",
+ "at": "2026-11-05T13:12:48.655Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1080,
+   "height": 675,
+   "load": "load",
+   "screens": 3,
+   "filled": [
+    0.36,
+    0.31,
+    0.22
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "page": {
+     "height": 1440,
+     "screens": 2.1,
+     "words": 13,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 1,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "postcard-back.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "三秒钟，练习准时走",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 40,
+     "vw": 3.7,
+     "font": "Noto Sans SC",
+     "weight": 800,
+     "tracking": -0.01,
+     "leading": 1.3,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.88,
+     "top": 72,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "三秒钟，练习准时走",
+     "words": 1,
+     "lines": 1,
+     "size": 40,
+     "font": "Noto Sans SC"
+    },
+    "headings": [
+     {
+      "text": "三秒钟，练习准时走",
+      "words": 1,
+      "chars": 9,
+      "lines": 1,
+      "size": 40,
+      "vw": 3.7,
+      "font": "Noto Sans SC",
+      "weight": 800,
+      "tracking": -0.01,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 72,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "有点傻但真的管用。今晚就试一次。",
+      "words": 1,
+      "chars": 16,
+      "lines": 1,
+      "size": 28,
+      "vw": 2.6,
+      "font": "Noto Sans SC",
+      "weight": 500,
+      "tracking": 0,
+      "leading": 1.6,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 148,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "1 默念三秒我的下班我做主。 2 直接站起来收拾包。不解释不道歉。 3 出门别回头，轻快会追上你。",
+      "words": 6,
+      "chars": 49,
+      "lines": 3,
+      "size": 28,
+      "vw": 2.6,
+      "font": "Noto Sans SC",
+      "weight": 500,
+      "tracking": 0,
+      "leading": 1.6,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 225,
+      "tag": "div",
+      "kind": "heading"
+     },
+     {
+      "text": "世界不会塌掉反而轻快不少。",
+      "words": 1,
+      "chars": 13,
+      "lines": 1,
+      "size": 26,
+      "vw": 2.4,
+      "font": "Noto Sans SC",
+      "weight": 600,
+      "tracking": 0,
+      "leading": 1.5,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 449,
+      "tag": "p",
+      "kind": "statement"
+     }
+    ],
+    "headingSummary": {
+     "count": 4,
+     "maxLines": 3,
+     "over2Lines": 1,
+     "statements": 2,
+     "centered": 0,
+     "medianWords": 1,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Noto Sans SC",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      16,
+      18,
+      24,
+      26,
+      28,
+      40
+     ],
+     "sizeCount": 6,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 40,
+      "vw": 3.7,
+      "font": "Noto Sans SC",
+      "text": "三秒钟，练习准时走"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#fff7ed",
+     "bodyBgHsl": {
+      "h": 33,
+      "s": 1,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#201a14",
+       "top": 520,
+       "hsl": {
+        "h": 30,
+        "s": 0.23,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#9ca3af",
+       "share": 0.5
+      },
+      {
+       "color": "#431407",
+       "share": 0.38
+      },
+      {
+       "color": "#ea580c",
+       "share": 0.1
+      },
+      {
+       "color": "#fff7ed",
+       "share": 0.02
+      }
+     ],
+     "button": null,
+     "lowContrast": [
+      {
+       "text": "有点傻但真的管用。今晚就试一次。",
+       "ratio": 2.4,
+       "need": 3,
+       "size": 28,
+       "fg": "#9ca3af",
+       "bg": "#fff7ed"
+      },
+      {
+       "text": "情绪树洞 · 母版样张",
+       "ratio": 2.4,
+       "need": 4.5,
+       "size": 18,
+       "fg": "#9ca3af",
+       "bg": "#fff7ed"
+      },
+      {
+       "text": "图片来源：assets/postcard-back.jpg（明信片背档案照）",
+       "ratio": 2.4,
+       "need": 4.5,
+       "size": 16,
+       "fg": "#9ca3af",
+       "bg": "#fff7ed"
+      }
+     ]
+    },
+    "buttons": {
+     "count": 0,
+     "inHero": 0,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": []
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 1,
+     "boxRadius": 28,
+     "squareMedia": 0,
+     "roundedMedia": 1,
+     "mediaRadius": 28,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.2
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": [
+     "noto sans sc"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "pageH": 1440,
+    "margins": {
+     "left": 64,
+     "right": 64
+    },
+    "sections": [
+     {
+      "sel": "div",
+      "tag": "div",
+      "top": 225,
+      "height": 192,
+      "words": 3,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "默念三秒我的下班我做主。",
+       "size": 28,
+       "tag": "div"
+      },
+      "left": 132,
+      "right": 500,
+      "textLeft": 132,
+      "textRight": 500,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": false,
+      "pinned": false
+     },
+     {
+      "sel": "div.photo-well",
+      "tag": "div",
+      "top": 520,
+      "height": 360,
+      "words": 0,
+      "media": 1,
+      "middle": 0,
+      "heading": null,
+      "left": 64,
+      "right": 64,
+      "textLeft": null,
+      "textRight": null,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [
+     {
+      "top": 880,
+      "height": 440
+     }
+    ],
+    "h1s": [
+     {
+      "text": "三秒钟，练习准时走",
+      "size": 40,
+      "top": 72,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 64,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 16,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.28,
+    "voidBox": {
+     "x": 585,
+     "y": 90,
+     "w": 495,
+     "h": 405
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "FAIL",
+   "id": "headline-lines",
+   "width": 1080,
+   "message": "1 headline(s) wrap past two lines at 1080px: \"1 默念三秒我的下班我做主。 2 直接站起来收拾包。不解释不道歉。 3 出门别回头，轻快会追上你\" → 3 lines (6 words, 28px)",
+   "fix": "Cut words first (a headline is a title, not a sentence). Then give it a wider measure. Lower the size only as a last resort and never below the scale you chose. A real statement paragraph belongs in a <p> or <blockquote> at 32px or less."
+  },
+  {
+   "level": "WARN",
+   "id": "palette-cream",
+   "width": 1080,
+   "message": "Yellow-cream background (page background #fff7ed, text #fff7ed).",
+   "fix": "Use the drawn palette. If you want warmth, take a low-chroma stone or bone, not a yellow cream."
+  },
+  {
+   "level": "FAIL",
+   "id": "contrast",
+   "width": 1080,
+   "message": "Unreadable text: \"有点傻但真的管用。今晚就试一次。\" 2.4:1 (#9ca3af on #fff7ed); \"情绪树洞 · 母版样张\" 2.4:1 (#9ca3af on #fff7ed); \"图片来源：assets/postcard-back.jpg（明信片背档案照）\" 2.4:1 (#9ca3af on #fff7ed)",
+   "fix": "Raise contrast to at least 4.5:1 for text, 3:1 for large display."
+  },
+  {
+   "level": "WARN",
+   "id": "first-action",
+   "width": 1080,
+   "message": "No visible button in the first screen.",
+   "fix": "Give the one primary action a real button in the first screen (a filled or solid-bordered control, 44px or taller), not only a link in the navigation."
+  },
+  {
+   "level": "FAIL",
+   "id": "focal-point",
+   "width": 1080,
+   "message": "The first screen has no dominant element: the largest type is 40px (3.7vw) and no single picture holds a third of the viewport.",
+   "fix": "Make one thing lead: the headline at display size, or one large picture. A grid of many small pictures is not one thing; in blind tests jurors marked a first screen without a headline down every time. On the strongest studied sites the largest type has a median of 8.4vw."
+  },
+  {
+   "level": "FAIL",
+   "id": "blank-gap",
+   "width": 1080,
+   "message": "1 stretch(es) of the page hold nothing at all: 440px at 880px (the screen is 675px tall).",
+   "fix": "Close the gap: a section gap is 120–240px on desktop and 72–112px on a phone. Look for a min-height: 100vh on a short section, an empty grid row, a hidden element still holding its space, or a reveal that never fired. A deliberate rest is a placed picture or colour field, not nothing."
+  },
+  {
+   "level": "WARN",
+   "id": "name-only-title",
+   "width": 1080,
+   "message": "The h1 is a bare name (\"三秒钟，练习准时走\") and nothing else on the first screen says what this is.",
+   "fix": "Keep the name if it leads, and give the line under it (18px or more) the plain words: what it is, for whom, where or when. In the study of 97 Sites of the Day, first screens that named nothing lost usability and content points."
+  },
+  {
+   "level": "WARN",
+   "id": "hero-void",
+   "width": 1080,
+   "message": "28% of the first screen is one empty block (495×405px at 585,90).",
+   "fix": "Place the void on purpose or fill it: move the picture, the film or one fact into it, grow the headline to meet it, or shrink the screen to its content. A void reads as placed only when something closes it on the far side and it is the screen's one rest."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "tablet",
+   "width": 1080,
+   "fold": "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/d_bracket_well-card_04_method/tablet-fold.jpg",
+   "pages": [
+    "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/d_bracket_well-card_04_method/tablet-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

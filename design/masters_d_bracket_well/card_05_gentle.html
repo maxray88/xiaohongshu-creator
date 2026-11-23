@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="暮色琥珀">
+<head>
+<meta charset="UTF-8" />
+<title>你不是不努力</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--g0:#FFF7ED;--g1:#FFEDD5;--g2:#FDBA74;--ac:#EA580C;--tx:#431407;--mu:#9CA3AF;}
+html[data-theme="暮色琥珀"]{--g0:#FFF7ED;--g1:#FFEDD5;--g2:#FDBA74;--ac:#EA580C;--tx:#431407;--mu:#9CA3AF;}
+html[data-theme="晨雾薄荷"]{--g0:#ECFDF5;--g1:#D1FAE5;--g2:#6EE7B7;--ac:#059669;--tx:#064E3B;--mu:#6B7280;}
+html[data-theme="雾蓝海湾"]{--g0:#EFF6FF;--g1:#DBEAFE;--g2:#93C5FD;--ac:#2563EB;--tx:#1E3A8A;--mu:#64748B;}
+html[data-theme="玫瑰暮云"]{--g0:#FFF1F2;--g1:#FFE4E6;--g2:#FECDD3;--ac:#E11D48;--tx:#4C0519;--mu:#9CA3AF;}
+html[data-theme="森林晨光"]{--g0:#F0FDF4;--g1:#DCFCE7;--g2:#86EFAC;--ac:#16A34A;--tx:#052E16;--mu:#6B7280;}
+html[data-theme="海盐汽水"]{--g0:#0D3A57;--g1:#EAF7FF;--g2:#5FB6DE;--ac:#FFD166;--tx:#EAF7FF;--mu:#B8ECD9;}
+html[data-theme="雪松深夜"]{--g0:#0F172A;--g1:#1E293B;--g2:#334155;--ac:#38BDF8;--tx:#F1F5F9;--mu:#94A3B8;}
+html[data-theme="麦田晚风"]{--g0:#FFFBEB;--g1:#FEF3C7;--g2:#FCD34D;--ac:#D97706;--tx:#451A03;--mu:#9CA3AF;}
+html[data-theme="莓果初雪"]{--g0:#FFF1F5;--g1:#FFE4EC;--g2:#F9A8D4;--ac:#EC4899;--tx:#4A0A2A;--mu:#9CA3AF;}
+html[data-theme="苔藓墨绿"]{--g0:#022C22;--g1:#064E3B;--g2:#10B981;--ac:#34D399;--tx:#ECFDF5;--mu:#6EE7B7;}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1440px; }
+  body {
+    width: 1080px; height: 1440px;
+    background: var(--g0);
+    color: var(--tx);
+    font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    position: relative;
+    overflow: hidden;
+  }
+  .card {
+    width: 1080px; height: 1440px;
+    padding: 72px 64px 64px;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .bracket { position: absolute; width: 44px; height: 44px; }
+  .bracket.tl { top: 40px; left: 40px; border-top: 2px solid var(--ac); border-left: 2px solid var(--ac); }
+  .bracket.tr { top: 40px; right: 40px; border-top: 2px solid var(--ac); border-right: 2px solid var(--ac); }
+  .bracket.bl { bottom: 40px; left: 40px; border-bottom: 2px solid var(--ac); border-left: 2px solid var(--ac); }
+  .bracket.br { bottom: 40px; right: 40px; border-bottom: 2px solid var(--ac); border-right: 2px solid var(--ac); }
+  h1 {
+    font-size: 40px; font-weight: 800; line-height: 1.3;
+    color: var(--tx); letter-spacing: -0.01em;
+  }
+  .body-p {
+    font-size: 28px; font-weight: 400; line-height: 1.7;
+    color: var(--tx);
+  }
+  .body-p.accent { color: var(--ac); font-weight: 600; }
+  .photo-well {
+    background: #201a14;
+    border-radius: 28px;
+    overflow: hidden;
+    position: relative;
+  }
+  .photo-well img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .footer {
+    margin-top: auto;
+    padding-top: 24px;
+    display: flex; flex-direction: column; gap: 6px;
+    font-size: 18px; color: var(--tx); font-weight: 500;
+  }
+  .credit { font-size: 16px; color: var(--tx); opacity: 0.8; }
+</style>
+</head>
+<body>
+<div class="card" data-od-id="card-gentle">
+  <div class="bracket tl"></div>
+  <div class="bracket tr"></div>
+  <div class="bracket bl"></div>
+  <div class="bracket br"></div>
+
+  <h1 data-od-id="gentle-title">你不是不努力</h1>
+
+  <div style="margin: 40px 0; display: flex; flex-direction: column; gap: 24px;">
+    <p class="body-p" data-od-id="gentle-p1">你只是太会看人脸色了。对自己好一点怎么就这么难呢？</p>
+    <p class="body-p" data-od-id="gentle-p2">把期待还给别人把温柔留给自己。今晚准时下班的你也值得被肯定。</p>
+    <p class="body-p accent" data-od-id="gentle-p3">晚安明天见。</p>
+  </div>
+
+  <div class="photo-well" data-od-id="gentle-photo" style="margin: 24px 0 32px; height: 730px;">
+    <img src="assets/moon.jpg" alt="半月档案照" style="object-position: bottom right;" />
+  </div>
+
+  <div class="footer" data-od-id="card-footer">
+    <span>情绪树洞 · 母版样张</span>
+    <span class="credit">图片来源：assets/moon.jpg（半月档案照，不同裁剪）</span>
+  </div>
+</div>
+</body>
+</html>

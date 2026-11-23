@@ -1,0 +1,424 @@
+{
+ "url": "design/masters_e_guizhang/card_06_cta.html",
+ "at": "2026-11-05T15:30:26.776Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1080,
+   "height": 675,
+   "load": "load",
+   "screens": 3,
+   "filled": [
+    1,
+    1,
+    1
+   ],
+   "motion": {
+    "elements": 0,
+    "css": 0,
+    "transitions": 0,
+    "scripted": 0,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "page": {
+     "height": 1440,
+     "screens": 2.1,
+     "words": 14,
+     "img": 1,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 0,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 0,
+     "uiAbuse": false,
+     "realPictures": 1,
+     "videoCount": 0,
+     "uiPictures": 0,
+     "pictureSamples": [
+      "letter-sara.jpg"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "今晚，你几点走的？",
+     "words": 1,
+     "chars": 9,
+     "lines": 1,
+     "size": 54,
+     "vw": 5,
+     "font": "Noto Sans SC",
+     "weight": 800,
+     "tracking": -0.01,
+     "leading": 1.2,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "right",
+     "widthRatio": 0.74,
+     "top": 60,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "今晚，你几点走的？",
+     "words": 1,
+     "lines": 1,
+     "size": 54,
+     "font": "Noto Sans SC"
+    },
+    "headings": [
+     {
+      "text": "行动 6 / 6",
+      "words": 4,
+      "chars": 8,
+      "lines": 2,
+      "size": 27,
+      "vw": 2.5,
+      "font": "Noto Sans SC",
+      "weight": 700,
+      "tracking": 0.37,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.16,
+      "top": 0,
+      "tag": "div",
+      "kind": "heading"
+     },
+     {
+      "text": "今晚，你几点走的？",
+      "words": 1,
+      "chars": 9,
+      "lines": 1,
+      "size": 54,
+      "vw": 5,
+      "font": "Noto Sans SC",
+      "weight": 800,
+      "tracking": -0.01,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.74,
+      "top": 60,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "评论区聊聊你因为谁多坐过那半小时？点个收藏明天想走就理直气壮。",
+      "words": 1,
+      "chars": 31,
+      "lines": 2,
+      "size": 26,
+      "vw": 2.4,
+      "font": "Noto Sans SC",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.7,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.74,
+      "top": 145,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "去评论区说说你几点走",
+      "words": 1,
+      "chars": 10,
+      "lines": 1,
+      "size": 30,
+      "vw": 2.8,
+      "font": "Noto Sans SC",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "right",
+      "widthRatio": 0.74,
+      "top": 845,
+      "tag": "button",
+      "kind": "heading"
+     },
+     {
+      "text": "每晚十点，树洞准时开门。",
+      "words": 1,
+      "chars": 12,
+      "lines": 1,
+      "size": 26,
+      "vw": 2.4,
+      "font": "Noto Sans SC",
+      "weight": 700,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.74,
+      "top": 967,
+      "tag": "p",
+      "kind": "statement"
+     }
+    ],
+    "headingSummary": {
+     "count": 5,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 2,
+     "centered": 1,
+     "medianWords": 1,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "Noto Sans SC",
+       "share": 1,
+       "mono": false
+      }
+     ],
+     "familyCount": 1,
+     "sizes": [
+      17,
+      20,
+      24,
+      26,
+      27,
+      30,
+      54
+     ],
+     "sizeCount": 7,
+     "notLoaded": [],
+     "body": null,
+     "measureChars": null,
+     "max": {
+      "size": 54,
+      "vw": 5,
+      "font": "Noto Sans SC",
+      "text": "今晚，你几点走的？"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.08,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#ffffff",
+     "bodyBgHsl": {
+      "h": 0,
+      "s": 0,
+      "l": 1
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#fff7ed",
+       "top": 0,
+       "hsl": {
+        "h": 33,
+        "s": 1,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#ffedd5",
+       "top": 0,
+       "hsl": {
+        "h": 34,
+        "s": 1,
+        "l": 0.92
+       }
+      },
+      {
+       "color": "#201a14",
+       "top": 257,
+       "hsl": {
+        "h": 30,
+        "s": 0.23,
+        "l": 0.1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#431407",
+       "share": 0.79
+      },
+      {
+       "color": "#ea580c",
+       "share": 0.13
+      },
+      {
+       "color": "#fff7ed",
+       "share": 0.08
+      }
+     ],
+     "button": null,
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 0,
+     "inHero": 0,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": []
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 2,
+     "boxRadius": 24,
+     "squareMedia": 0,
+     "roundedMedia": 1,
+     "mediaRadius": 12,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.43
+     }
+    ],
+    "nav": null,
+    "fontsLoaded": [
+     "noto sans sc"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1080,
+     "h": 675
+    },
+    "pageH": 1440,
+    "margins": {
+     "left": 64,
+     "right": 52
+    },
+    "sections": [],
+    "gaps": [
+     {
+      "top": 1008,
+      "height": 328
+     }
+    ],
+    "h1s": [
+     {
+      "text": "今晚，你几点走的？",
+      "size": 54,
+      "top": 60,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 228,
+      "n": 1
+     }
+    ],
+    "leftBlocks": 1,
+    "bodySize": 17,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.14,
+    "voidBox": {
+     "x": 0,
+     "y": 225,
+     "w": 225,
+     "h": 450
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "palette-cream",
+   "width": 1080,
+   "message": "Yellow-cream background (section #fff7ed, section #ffedd5, text #fff7ed).",
+   "fix": "Use the drawn palette. If you want warmth, take a low-chroma stone or bone, not a yellow cream."
+  },
+  {
+   "level": "WARN",
+   "id": "first-action",
+   "width": 1080,
+   "message": "No visible button in the first screen.",
+   "fix": "Give the one primary action a real button in the first screen (a filled or solid-bordered control, 44px or taller), not only a link in the navigation."
+  },
+  {
+   "level": "WARN",
+   "id": "blank-gap",
+   "width": 1080,
+   "message": "A 328px stretch at 1008px holds nothing.",
+   "fix": "Check that it is a deliberate rest (once per page at most); otherwise close it to the normal section gap."
+  },
+  {
+   "level": "WARN",
+   "id": "name-only-title",
+   "width": 1080,
+   "message": "The h1 is a bare name (\"今晚，你几点走的？\") and nothing else on the first screen says what this is.",
+   "fix": "Keep the name if it leads, and give the line under it (18px or more) the plain words: what it is, for whom, where or when. In the study of 97 Sites of the Day, first screens that named nothing lost usability and content points."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "tablet",
+   "width": 1080,
+   "fold": "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/e_guizhang-card_06_cta/tablet-fold.jpg",
+   "pages": [
+    "/Users/maochundong/02_Cronjobs_Projects/01_XHS_Daily_Post/.taste-skill/e_guizhang-card_06_cta/tablet-page-01.jpg"
+   ],
+   "film": []
+  }
+ ]
+}
