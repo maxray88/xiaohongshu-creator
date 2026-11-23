@@ -179,16 +179,26 @@ def main():
     pub._fill_content(content_body)
     print(f"✅ Content filled ({len(content_body)} chars)")
 
-    print("  ⏳ Waiting for auto-save...")
-    time.sleep(5)
+    print("  ⏳ Waiting for auto-save (poll up to ~120s)...")
+    save_confirmed = False
+    draft_after = get_draft_count(pub)  # may be -1 when unreadable
+    page_snippet = ""
+    deadline = time.monotonic() + 120
+    while time.monotonic() < deadline:
+        time.sleep(10)
+        try:
+            draft_after = get_draft_count(pub)
+            page_snippet = pub._evaluate("document.body.innerText.substring(0, 500)") or ""
+            save_confirmed = save_confirmed_in(page_snippet)
+        except Exception:
+            continue
+        if save_confirmed or (draft_before >= 0 and draft_after > draft_before):
+            break
 
     print("\n── [4/4] Verify save ──")
-    draft_after = get_draft_count(pub)
-    page_snippet = pub._evaluate("document.body.innerText.substring(0, 500)") or ""
     # 只有页面上的保存指示才是硬证据。裸「草稿」永远匹配到侧边栏标签，恒真。
     # marker 列表与 video 侧共用（xhs_video_draft.SAVE_MARKERS）——
     # 曾经各写一份，日后必然分叉成「图文能验、验不了视频」。
-    save_confirmed = save_confirmed_in(page_snippet)
     if draft_after > draft_before:
         print(f"✅ Draft saved! 草稿箱({draft_before}) → 草稿箱({draft_after})")
     elif draft_after == draft_before and draft_before >= 0:

@@ -26,6 +26,7 @@ V2 缺 manifest → 02:15/02:30/04:00/05:00 连环误报。本地脚本零配额
 import json
 import os
 import re
+import shutil
 import sys
 import time
 import glob
@@ -172,6 +173,15 @@ def main() -> int:
                       f"(luminance remap of V1 {v1_cs}, text untouched) */\n</style>")
         open(os.path.join(img_out, dst), "w", encoding="utf-8").write(t)
         print(f"  ✅ {dst}（{len(t)} 字节，文字逐字保留）")
+
+    v1_assets = os.path.join(v1_images, "assets")
+    v2_assets = os.path.join(img_out, "assets")
+    if os.path.isdir(v1_assets):
+        shutil.copytree(v1_assets, v2_assets, dirs_exist_ok=True)
+        n_assets = sum(len(fs) for _, _, fs in os.walk(v2_assets))
+        print(f"  ✅ assets 随卡携带（{n_assets} 个文件，V1 照片不破图）")
+    else:
+        print("  ⏭ 无 assets 目录，跳过携带（旧照片-free 天）")
 
     day_num = post_data.get("day_num", 0)
     manifest = {

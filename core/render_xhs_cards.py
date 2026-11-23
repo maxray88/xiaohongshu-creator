@@ -132,30 +132,69 @@ def main():
             try:
                 file_url = "file://" + os.path.abspath(html_path)
                 print(f"  Card {i}: {os.path.basename(html_path)} → JPG...", end=" ", flush=True)
-                p._navigate(file_url)
-                time.sleep(1.5)
-                p._send("Emulation.setDeviceMetricsOverride", {
-                    "width": 1080,
-                    "height": 1440,
-                    "deviceScaleFactor": 2,
-                    "mobile": False,
-                })
-                time.sleep(0.3)
-                result = run_with_retries(
-                    lambda: p._send("Page.captureScreenshot",
-                                    {"format": "jpeg", "quality": 92}),
-                    label=f"Card {i} 截图",
-                )
-                data = result.get("data") if isinstance(result, dict) else None
-                if not data:
-                    raise ValueError("captureScreenshot 未返回 data（页面可能未加载完）")
+
+                def _setup_session(reconnect: bool = False):
+                    """新连接/重连后的一次性会话设置，避免在三档间粘贴三遍。
+
+                    Chrome 以 close 109 杀死连接后该连接已死，后续 _send 必抛
+                    ConnectionClosedError；必须 disconnect+connect，并重做
+                    Network.enable/setBlockedURLs/_navigate/Emulation 才能再发。
+                    happy path（q92 一次过）只走一次，不重连。
+                    """
+                    if reconnect:
+                        p.disconnect()
+                        p.connect()
+                    p._send("Network.enable")
+                    p._send("Network.setBlockedURLs", {"urls": [
+                        "*fonts.googleapis.com*",
+                        "*fonts.gstatic.com*",
+                    ]})
+                    p._navigate(file_url)
+                    time.sleep(1.5)
+                    p._send("Emulation.setDeviceMetricsOverride", {
+                        "width": 1080,
+                        "height": 1440,
+                        "deviceScaleFactor": 2,
+                        "mobile": False,
+                    })
+                    time.sleep(0.3)
+
+                data = None
+                used_quality = None
+                last_oversize_err = None
+                prev_attempt_failed = False
+                for quality in (92, 80, 70):
+                    _setup_session(reconnect=prev_attempt_failed)
+                    prev_attempt_failed = False
+                    try:
+                        result = run_with_retries(
+                            lambda q=quality: p._send("Page.captureScreenshot",
+                                                      {"format": "jpeg", "quality": q}),
+                            attempts=2,
+                            label=f"Card {i} 截图 (q{quality})",
+                        )
+                        data = result.get("data") if isinstance(result, dict) else None
+                        if not data:
+                            raise ValueError("captureScreenshot 未返回 data（页面可能未加载完）")
+                        used_quality = quality
+                        break
+                    except Exception as e:
+                        text = str(e)
+                        if ("message too big" in text) or ("exceeds limit" in text):
+                            last_oversize_err = e
+                            prev_attempt_failed = True
+                            continue  # oversize 帧：降到下一档质量重试
+                        raise  # 非 oversize 异常：保持原 loud-fail 语义
+                if used_quality is None:
+                    raise last_oversize_err or ValueError(
+                        "captureScreenshot 未返回 data（页面可能未加载完）")
                 blob = base64.b64decode(data)
                 if not blob:
                     raise ValueError("截图内容为空")
                 with open(jpg_path, "wb") as f:
                     f.write(blob)
                 sz = os.path.getsize(jpg_path)
-                print(f"{sz // 1024} KB")
+                print(f"{sz // 1024} KB (q{used_quality})")
                 rendered += 1
             except Exception as e:
                 # 失败的半截文件不能留下，否则下次 skip 判断会误认为已渲染
