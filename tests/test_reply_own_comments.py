@@ -56,6 +56,7 @@ class FakePublisher:
         self.responded.append({
             "feed_id": feed_id, "comment_id": comment_id,
             "content": content, "author": comment_author,
+            "comment_snippet": comment_snippet,
         })
         return {"ok": True}
 
@@ -733,3 +734,71 @@ def test_state_notes_single_array_wrapper(mod, monkeypatch):
     res = pub._extract_profile_notes_from_state(5)
     assert [e["id"] for e in res] == [n["id"] for n in items]
     assert [e["xsec_token"] for e in res] == ["TOKEN0", "TOKEN1"]
+
+def _vendor_pub(monkeypatch):
+    """Instantiate a vendor publisher with stubbed CDP methods for unit testing."""
+    import sys
+    sys.path.insert(0, "vendor/xhs")
+    import cdp_publish
+    pub = cdp_publish.XiaohongshuPublisher.__new__(cdp_publish.XiaohongshuPublisher)
+    pub.ws = object()
+    monkeypatch.setattr(pub, "_navigate", lambda url: None)
+    monkeypatch.setattr(pub, "_sleep", lambda *a, **k: None)
+    return pub
+
+
+def test_vendor_reply_container_subreply_creator(mod, monkeypatch):
+    """Round H: DOM fallback sub-reply scan now matches .reply-container,
+    so a creator reply nested inside div.reply-container makes has_creator_reply True."""
+    pub = _vendor_pub(monkeypatch)
+    creator_nick = "BOLT & Kai AI漫画 作者"
+    def fake_eval(expr):
+        assert "__INITIAL_STATE__" in expr
+        assert ".reply-container" in expr, "vendor JS must include .reply-container selector"
+        assert "Array.from" in expr, "vendor JS must wrap querySelectorAll in Array.from"
+        assert "parentElement" in expr, "vendor JS must walk parentElement for reply-container siblings"
+        return {
+            "ok": True,
+            "comments": [
+                {
+                    "comment_id": "c1",
+                    "author": "fan",
+                    "content": "好喜欢这篇笔记",
+                    "created_at": "",
+                    "sub_reply_authors": [creator_nick],
+                },
+                {
+                    "comment_id": "c2",
+                    "author": "fan",
+                    "content": "支持一下",
+                    "created_at": "",
+                    "sub_reply_authors": ["other-user"],
+                },
+            ],
+            "raw_count": 2,
+        }
+    monkeypatch.setattr(pub, "_evaluate", fake_eval)
+    res = pub.list_feed_comments(FEED_A, creator_nick=creator_nick)
+    assert res["ok"] is True
+    flags = {c["comment_id"]: c["has_creator_reply"] for c in res["comments"]}
+    assert flags["c1"] is True
+    assert flags["c2"] is False
+
+
+def test_live_comment_snippet_is_original_comment(mod, datadir, monkeypatch):
+    """Round H: comment_snippet passed to respond_comment must be the original
+    comment text (truncated), not the generated reply text."""
+    _write_job(datadir, {"expect_nick": "creator"})
+    _pass_score(monkeypatch, mod, 9.0)
+    original_comment = "今天天气真好，心情不错啊！想和大家分享这份美好。"
+    comments = {FEED_A: [_c("c1", "fan1", original_comment)]}
+    seen = []
+    def factory(a):
+        p = FakePublisher(_live_notes(), comments)
+        seen.append(p)
+        return p
+    rc = mod.run(["--live"] + _std_args(), publisher_factory=factory,
+                 llm_caller=_ok_llm())
+    assert rc == 0
+    assert len(seen[0].responded) == 1
+    assert seen[0].responded[0]["comment_snippet"] == original_comment[:40]

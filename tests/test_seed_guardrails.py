@@ -86,6 +86,7 @@ def isolated(tmp_path, monkeypatch):
     monkeypatch.setattr(seed, "COUNTER_PATH", str(tmp_path / "engagement_counter.json"))
     monkeypatch.setattr(seed, "LOG_PATH", str(tmp_path / "engagement_log.jsonl"))
     monkeypatch.setattr(seed, "STOP_PATH", str(tmp_path / "ENGAGEMENT_STOP"))
+    monkeypatch.setattr(seed, "JOB_PATH", str(tmp_path / "engagement_job.json"))
     _stub_commenting(monkeypatch)
     sleeps: list = []
     monkeypatch.setattr(seed, "_sleep", lambda seconds: sleeps.append(seconds))

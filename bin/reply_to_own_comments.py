@@ -642,9 +642,9 @@ def _run_live(publisher, cfg: dict, args, used: int, llm_caller=None) -> int:
                 reply,
                 comment_id=item["comment_id"],
                 comment_author=item["author"],
-                comment_snippet=reply[:40],
+                comment_snippet=content[:40],
             )
-        except Exception as e:  # noqa: BLE001 — per-comment fail-open, no counter扣
+        except Exception as e:  # noqa: BLE001 — per-comment fail-open, no counter deducted
             _append_ledger({
                 "ts": datetime.now().isoformat(),
                 "feed_id": item["feed_id"],

@@ -2178,17 +2178,25 @@ class XiaohongshuPublisher:
                             const author = normalize(authorNode ? authorNode.textContent : "");
                             const text = normalize(node.innerText || node.textContent);
                             const subs = [];
-                            const subNodes = node.querySelectorAll(
+                            const subNodes = Array.from(node.querySelectorAll(
                                 ".sub-comment li, .sub-comment, " +
-                                "[class*='sub-reply'], [class*='reply-item'], li[class*='reply']"
-                            );
+                                "[class*='sub-reply'], [class*='reply-item'], li[class*='reply'], .reply-container, [class*='reply-container']"
+                            ));
+                            const parent = node.parentElement;
+                            if (parent && /parent-comment|comment-item/.test(parent.className || "")) {
+                                for (const s of parent.querySelectorAll(
+                                    ".reply-container, [class*='reply-container']"
+                                )) {
+                                    subNodes.push(s);
+                                }
+                            }
                             for (const subNode of subNodes) {
                                 const subAuthorNode = subNode.querySelector(
                                     "[class*='author'], [class*='name'], [class*='user']"
                                 );
                                 const subAuthor = normalize(
                                     subAuthorNode ? subAuthorNode.textContent : ""
-                                );
+                                ).replace(/作者$/, "").trim();
                                 if (subAuthor) {
                                     subs.push(subAuthor);
                                 }
@@ -2228,7 +2236,7 @@ class XiaohongshuPublisher:
                 "author": str(item.get("author") or ""),
                 "content": str(item.get("content") or ""),
                 "created_at": str(item.get("created_at") or ""),
-                "has_creator_reply": bool(nick and nick in sub_authors),
+                "has_creator_reply": bool(nick and any(nick in a for a in sub_authors)),
             })
         raw_count = result.get("raw_count")
         return {

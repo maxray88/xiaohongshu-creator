@@ -33,3 +33,4 @@
 
 - All 3 markers resolved 2026-11-15 (Q1=A 全量未回复他人顶层评论 / Q2=A LLM 上下文生成 + 质量门槛 / Q3=B 独立 ≤3/日 计数器) and baked into FR-005/012/013.
 - 2026-11-15: Initial draft authored. Safety-critical requirements (端口 allowlist / ENGAGEMENT_STOP / 身份门禁 / fail-closed) pinned per repo convention.
+test_vendor_reply_container_subreply_creator 仅断言 vendored JS 源码字符串（`.reply-container` / `Array.from` / `parentElement`），**没有在 DOM 中执行 JS**；DOM fallback 的真实性依赖 PM 在 2026-11-23 的真机验证（两条旧评论 has_creator_reply=true）。node+stub-DOM harness 是尚未完成的 follow-up。
